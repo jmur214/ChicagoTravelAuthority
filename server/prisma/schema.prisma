@@ -1,0 +1,70 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  latitude    Float
+  longitude   Float
+  address     String?
+  googlePlaceId String? @map("google_place_id")
+  metadata    Json?    // For flexible attributes
+
+  // Smart Planner Fields
+  avgCost         Int?     // 1=$, 2=$$, 3=$$$, 4=$$$$
+  avgStayMinutes  Int      @default(90) @map("avg_stay_minutes")
+  openHours       Json?    @map("open_hours") // Structured weekly hours
+  phoneNumber     String?  @map("phone_number")
+  website         String?
+  menuUrl         String?
+  eventsInfo      String?  // Happy hour details, special events, etc.
+  rating          Float?   // 0.0 - 5.0
+  reviewCount     Int?
+  isConfirmed     Boolean  @default(false) @map("is_confirmed") // Verification status
+  verifiedVibe    Boolean  @default(false) @map("verified_vibe") // Staff Seal of Approval
+  userVerifiedCount Int    @default(0) @map("user_verified_count") // Future: User crowd verification
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tags       LocationTag[]
+  categories TagCategory[] // Direct high-level categorization
+}
+
+model TagCategory {
+  id             Int           @id @default(autoincrement())
+  name           String        @unique // e.g., "Primary", "Ambience"
+  isSingleSelect Boolean       @default(false) @map("is_single_select")
+  parentId       Int?          @map("parent_id")
+  parent         TagCategory?  @relation("ParentChild", fields: [parentId], references: [id])
+  children       TagCategory[] @relation("ParentChild")
+  
+  color          String?       @default("#ffffff")
+  shape          String?       @default("circle") // circle, star, diamond, ring
+
+  tags           Tag[]         // Many-to-Many: Tag can imply multiple categories
+  locations      Location[]    // Many-to-Many: Location can be in multiple categories
+}
+
+model Tag {
+  id         Int           @id @default(autoincrement())
+  name       String        @unique
+  // Removed categoryId for M2M
+  categories TagCategory[] 
+  locations  LocationTag[]
+}
+
+model LocationTag {
+  locationId Int @map("location_id")
+  tagId      Int @map("tag_id")
+  location   Location @relation(fields: [locationId], references: [id])
+  tag        Tag      @relation(fields: [tagId], references: [id])
+
+  @@id([locationId, tagId])
+}
