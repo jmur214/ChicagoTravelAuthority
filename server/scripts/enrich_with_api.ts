@@ -13,7 +13,7 @@ const YELP_API_KEY = process.env.YELP_API_KEY || process.argv[2];
 if (!YELP_API_KEY || !YELP_API_KEY.startsWith('Bearer') && YELP_API_KEY.length < 20) {
     if (!YELP_API_KEY) {
         console.error("ERROR: No API Key provided.");
-        console.log("Usage: npx ts-node src/scripts/enrich_with_api.ts <YOUR_YELP_API_KEY>");
+        console.log("Usage: npx tsx scripts/enrich_with_api.ts <YOUR_YELP_API_KEY>");
         console.log("\n--- HOW TO GET A FREE KEY ---");
         console.log("1. Go to: https://www.yelp.com/developers/v3/manage_app");
         console.log("2. Log in with your personal Yelp account (NOT Business).");

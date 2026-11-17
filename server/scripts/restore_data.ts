@@ -1,11 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
-import path from 'path';
-import { KmlService } from './services/kmlService'; // Assuming this exports the class
+import { parseKml } from '../src/services/kmlService';
 
+/**
+ * DESTRUCTIVE: wipes all locations/tags/categories and rebuilds them from a KML export.
+ * Usage: npx tsx scripts/restore_data.ts "/path/to/What to do_.kml"
+ */
 const prisma = new PrismaClient();
-const kmlService = new KmlService();
-const KML_PATH = '/Users/jacksonmurphy/Desktop/Projects_2/STD/What to do_.kml';
+const KML_PATH = process.argv[2];
+if (!KML_PATH) {
+    console.error('Usage: npx tsx scripts/restore_data.ts <path-to-kml>');
+    process.exit(1);
+}
 
 // Map KML folders to our App Categories
 const FOLDER_TO_CATEGORY: Record<string, string> = {
@@ -28,9 +34,9 @@ const STANDARD_CATEGORIES = [
     { name: 'Culture', color: '#7B1FA2', shape: 'diamond' },
     { name: 'Nature', color: '#43A047', shape: 'circle' },
     { name: 'Sports', color: '#FDB913', shape: 'circle' },
-    { name: 'Nightlife', color: '#E53935', shape: 'wine' },
-    { name: 'Shopping', color: '#FB8C00', shape: 'bag' },
-    { name: 'Food', color: '#8E24AA', shape: 'utensils' }
+    { name: 'Nightlife', color: '#E53935', shape: 'ring' },
+    { name: 'Shopping', color: '#FB8C00', shape: 'diamond' },
+    { name: 'Food', color: '#8E24AA', shape: 'star' }
 ];
 
 async function main() {
@@ -53,7 +59,7 @@ async function main() {
     }
 
     const kmlContent = fs.readFileSync(KML_PATH, 'utf-8');
-    const parsedPlaces = kmlService.parseKml(kmlContent);
+    const parsedPlaces = parseKml(kmlContent);
 
     console.log(`Found ${parsedPlaces.length} places in KML. Restoring...`);
     let importedCount = 0;

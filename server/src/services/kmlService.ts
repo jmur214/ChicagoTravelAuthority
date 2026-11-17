@@ -5,84 +5,60 @@ export interface ParsedPlace {
     description?: string;
     latitude: number;
     longitude: number;
-    folderPath: string[]; // Hierarchy: ["My Places", "Bars", "Chicago"]
+    /** Folder hierarchy, e.g. ["My Places", "Bars", "Cocktails"] */
+    folderPath: string[];
 }
 
-export class KmlService {
-    parseKml(kmlContent: string): ParsedPlace[] {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(kmlContent, 'text/xml');
-        // Traverse starting from root
-        return this.traverseNode(doc.documentElement, []);
+const ELEMENT_NODE = 1;
+
+function childElements(node: Element): Element[] {
+    const out: Element[] = [];
+    for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.nodeType === ELEMENT_NODE) out.push(child as unknown as Element);
+    }
+    return out;
+}
+
+const firstChild = (node: Element, tagName: string) => childElements(node).find(c => c.tagName === tagName);
+
+function parsePlacemark(node: Element, folderPath: string[]): ParsedPlace | null {
+    const name = firstChild(node, 'name')?.textContent?.trim();
+    const point = firstChild(node, 'Point');
+    const coords = point && firstChild(point, 'coordinates')?.textContent?.trim();
+    if (!name || !coords) return null; // only Points are supported
+
+    // KML coordinates are "lon,lat[,alt]"
+    const [lon, lat] = coords.split(',').map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    return {
+        name,
+        description: firstChild(node, 'description')?.textContent?.trim() || undefined,
+        latitude: lat,
+        longitude: lon,
+        folderPath,
+    };
+}
+
+function traverse(node: Element, path: string[]): ParsedPlace[] {
+    if (node.tagName === 'Placemark') {
+        const place = parsePlacemark(node, path);
+        return place ? [place] : [];
     }
 
-    private traverseNode(node: Element, currentPath: string[]): ParsedPlace[] {
-        const results: ParsedPlace[] = [];
-        const tagName = node.tagName;
-
-        let newPath = currentPath;
-
-        if (tagName === 'Folder' || tagName === 'Document') {
-            const nameNode = this.getChildByTagName(node, 'name');
-            const folderName = nameNode?.textContent || '';
-            if (folderName) {
-                newPath = [...currentPath, folderName];
-            }
-        }
-
-        if (tagName === 'Placemark') {
-            const place = this.parsePlacemark(node, currentPath);
-            if (place) return [place];
-            return [];
-        }
-
-        // Recurse children
-        if (node.hasChildNodes()) {
-            for (let i = 0; i < node.childNodes.length; i++) {
-                const child = node.childNodes[i];
-                if (child.nodeType === 1) { // Element node
-                    results.push(...this.traverseNode(child as Element, newPath));
-                }
-            }
-        }
-
-        return results;
+    let childPath = path;
+    if (node.tagName === 'Folder' || node.tagName === 'Document') {
+        const folderName = firstChild(node, 'name')?.textContent?.trim();
+        if (folderName) childPath = [...path, folderName];
     }
 
-    private parsePlacemark(node: Element, folderPath: string[]): ParsedPlace | null {
-        const nameNode = this.getChildByTagName(node, 'name');
-        const descNode = this.getChildByTagName(node, 'description');
-        const pointNode = this.getChildByTagName(node, 'Point');
+    return childElements(node).flatMap(child => traverse(child, childPath));
+}
 
-        if (!pointNode) return null; // Only parsing Points for now
-
-        const coordsNode = this.getChildByTagName(pointNode, 'coordinates');
-        const coordsText = coordsNode?.textContent?.trim();
-
-        if (!nameNode || !coordsText) return null;
-
-        const parts = coordsText.split(',');
-        if (parts.length < 2) return null;
-
-        const lon = parseFloat(parts[0]);
-        const lat = parseFloat(parts[1]);
-
-        return {
-            name: nameNode.textContent || 'Unknown',
-            description: descNode?.textContent || undefined,
-            latitude: lat,
-            longitude: lon,
-            folderPath
-        };
-    }
-
-    private getChildByTagName(node: Element, tagName: string): Element | undefined {
-        for (let i = 0; i < node.childNodes.length; i++) {
-            const child = node.childNodes[i];
-            if (child.nodeType === 1 && (child as Element).tagName === tagName) {
-                return child as Element;
-            }
-        }
-        return undefined;
-    }
+/** Extract point placemarks (with their folder path) from a KML document. */
+export function parseKml(kml: string): ParsedPlace[] {
+    // xmldom returns undefined for empty input and logs (rather than throws) on malformed XML.
+    const root = new DOMParser().parseFromString(kml, 'text/xml')?.documentElement;
+    return root ? traverse(root as unknown as Element, []) : [];
 }

@@ -55,7 +55,6 @@ model TagCategory {
 model Tag {
   id         Int           @id @default(autoincrement())
   name       String        @unique
-  // Removed categoryId for M2M
   categories TagCategory[] 
   locations  LocationTag[]
 }
@@ -63,8 +62,8 @@ model Tag {
 model LocationTag {
   locationId Int @map("location_id")
   tagId      Int @map("tag_id")
-  location   Location @relation(fields: [locationId], references: [id])
-  tag        Tag      @relation(fields: [tagId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([locationId, tagId])
 }
