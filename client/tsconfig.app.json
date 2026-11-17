@@ -22,7 +22,12 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* Resolve the shared workspace package to its TypeScript source (see vite.config.ts) */
+    "paths": {
+      "@cta/shared": ["../shared/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

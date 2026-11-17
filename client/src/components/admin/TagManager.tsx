@@ -1,48 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import type { Tag } from '../../../shared';
-import { fetchTags, createTag, updateTag, deleteTag } from '../api/client';
+import React, { useState } from 'react';
+import type { Tag } from '@cta/shared';
+import { api } from '../../api/client';
+import { errorMessage } from '../../api/http';
+import { useTags } from '../../hooks/useApiData';
 
 const TagManager: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const [tags, setTags] = useState<Tag[]>([]);
+    const { data: tags = [], reload, mutate } = useTags();
     const [newTag, setNewTag] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editName, setEditName] = useState('');
 
-    useEffect(() => {
-        loadTags();
-    }, []);
-
-    const loadTags = async () => {
-        const data = await fetchTags();
-        setTags(data);
-    };
-
     const handleCreate = async () => {
         if (!newTag.trim()) return;
-        await createTag(newTag);
-        setNewTag('');
-        loadTags();
-    };
-
-    const handleUpdate = async (id: number) => {
-        if (!editName.trim()) return;
-        await updateTag(id, { name: editName, categoryId: 1 }); // Default category
-        setEditingId(null);
-        loadTags();
-    };
-
-    const handleDelete = async (id: number) => {
-        if (!confirm('Delete this tag?')) return;
         try {
-            await deleteTag(id);
-            setTags(tags.filter(t => t.id !== id));
-        } catch (e) {
-            alert('Cannot delete tag in use');
+            await api.tags.create({ name: newTag });
+            setNewTag('');
+            reload();
+        } catch (err) {
+            alert(errorMessage(err));
+        }
+    };
+
+    const handleRename = async (id: number) => {
+        if (!editName.trim()) return;
+        try {
+            const updated = await api.tags.rename(id, editName);
+            mutate(list => (list ?? []).map(t => (t.id === id ? updated : t)));
+            setEditingId(null);
+        } catch (err) {
+            alert(errorMessage(err));
+        }
+    };
+
+    const handleDelete = async (tag: Tag) => {
+        if (!confirm(`Delete "${tag.name}"? It will be removed from every location that uses it.`)) return;
+        try {
+            await api.tags.remove(tag.id);
+            mutate(list => (list ?? []).filter(t => t.id !== tag.id));
+        } catch (err) {
+            alert(errorMessage(err));
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[2050] flex justify-center items-center p-8">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10001] flex justify-center items-center p-8">
             <div className="glass-panel w-full max-w-2xl h-[70vh] rounded-2xl flex flex-col bg-[#121212]">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center">
                     <h2 className="text-xl font-bold text-white">Tag Manager</h2>
@@ -70,9 +71,10 @@ const TagManager: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                             className="flex-1 bg-black/50 border border-brand-primary rounded px-2 text-white"
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleRename(tag.id)}
                                             autoFocus
                                         />
-                                        <button onClick={() => handleUpdate(tag.id)} className="text-green-400 text-xs uppercase font-bold">Save</button>
+                                        <button onClick={() => handleRename(tag.id)} className="text-green-400 text-xs uppercase font-bold">Save</button>
                                         <button onClick={() => setEditingId(null)} className="text-gray-400 text-xs uppercase font-bold">Cancel</button>
                                     </div>
                                 ) : (
@@ -80,7 +82,7 @@ const TagManager: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                         <span className="text-white">{tag.name}</span>
                                         <div className="flex gap-3">
                                             <button onClick={() => { setEditingId(tag.id); setEditName(tag.name); }} className="text-brand-accent hover:text-white text-xs">Edit</button>
-                                            <button onClick={() => handleDelete(tag.id)} className="text-red-500 hover:text-red-400 text-xs">Delete</button>
+                                            <button onClick={() => handleDelete(tag)} className="text-red-500 hover:text-red-400 text-xs">Delete</button>
                                         </div>
                                     </>
                                 )}

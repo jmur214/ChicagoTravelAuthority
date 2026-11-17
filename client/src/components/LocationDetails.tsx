@@ -1,5 +1,16 @@
 import React from 'react';
-import type { Location } from '../api/client';
+import { formatHHMM, getOpenStatus, type Location, type OpenStatus } from '@cta/shared';
+
+const openStatusLabel = (status: OpenStatus): { label: string; open: boolean } => {
+    switch (status.state) {
+        case 'open':
+            return { label: `Open until ${formatHHMM(status.closesAt)}`, open: true };
+        case 'closed':
+            return { label: status.opensAt ? `Closed · opens ${formatHHMM(status.opensAt)}` : 'Closed today', open: false };
+        default:
+            return { label: 'Hours unknown', open: false };
+    }
+};
 
 interface LocationDetailsProps {
     location: Location;
@@ -7,6 +18,9 @@ interface LocationDetailsProps {
 }
 
 const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) => {
+    const imageUrl = location.metadata?.imageUrl;
+    const hours = location.openHours ? openStatusLabel(getOpenStatus(location.openHours, new Date())) : null;
+
     return (
         <div className="h-full flex flex-col bg-[#050505]/95 backdrop-blur-3xl border-l border-white/5 relative shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-slideInRight">
 
@@ -24,9 +38,9 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
             {/* Immersive Hero Header */}
             <div className="relative h-[40vh] shrink-0 w-full overflow-hidden group">
                 {/* Image Parallax/Zoom Effect */}
-                {(location.metadata as any)?.imageUrl ? (
+                {imageUrl ? (
                     <div className="w-full h-full bg-cover bg-center transition-transform duration-[20s] ease-linear transform scale-100 group-hover:scale-110"
-                        style={{ backgroundImage: `url(${(location.metadata as any).imageUrl})` }}></div>
+                        style={{ backgroundImage: `url(${JSON.stringify(imageUrl)})` }}></div>
                 ) : (
                     <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gray-800 via-[#050505] to-[#000] flex items-center justify-center">
                         <h1 className="text-9xl font-black text-white/5 tracking-tighter select-none">CHI</h1>
@@ -40,7 +54,7 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
                 {/* Title & Badge Block */}
                 <div className="absolute bottom-6 left-8 right-8 z-10">
                     {/* Neon Vibe Badge - Only if Staff Verified */}
-                    {(location as any).verifiedVibe && (
+                    {location.verifiedVibe && (
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand-primary/30 bg-brand-primary/10 backdrop-blur-md mb-4 shadow-[0_0_15px_rgba(255,59,255,0.2)] animate-pulse">
                             <div className="w-1.5 h-1.5 rounded-full bg-brand-primary"></div>
                             <span className="text-[10px] font-bold text-brand-primary uppercase tracking-[0.2em]">Verified Vibe</span>
@@ -53,7 +67,7 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
 
                     {/* Tag Cloud */}
                     <div className="flex flex-wrap gap-2">
-                        {location.tags?.map((t: any) => (
+                        {location.tags.map(t => (
                             <span key={t.tag.id} className="text-[10px] font-medium px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-300 border border-white/5 transition-colors cursor-default">
                                 {t.tag.name}
                             </span>
@@ -70,17 +84,25 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
                     <div className="space-y-1">
                         <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Expect to Spend</span>
                         <div className="text-xl font-medium text-white flex items-baseline gap-1">
-                            <span className="text-brand-accent">{[...Array(location.avgCost || 2)].map(() => '$').join('')}</span>
-                            <span className="text-gray-600 text-sm">{[...Array(4 - (location.avgCost || 2))].map(() => '$').join('')}</span>
+                            {location.avgCost ? (
+                                <>
+                                    <span className="text-brand-accent">{'$'.repeat(location.avgCost)}</span>
+                                    <span className="text-gray-600 text-sm">{'$'.repeat(4 - location.avgCost)}</span>
+                                </>
+                            ) : (
+                                <span className="text-gray-600">—</span>
+                            )}
                         </div>
                     </div>
                     <div className="space-y-1">
                         <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Vibe Score</span>
-                        <div className="text-xl font-medium text-white">{(location.rating || 4.2).toFixed(1)} <span className="text-xs text-gray-600">/ 5.0</span></div>
+                        <div className="text-xl font-medium text-white">
+                            {location.rating != null ? location.rating.toFixed(1) : '—'} <span className="text-xs text-gray-600">/ 5.0</span>
+                        </div>
                     </div>
                     <div className="space-y-1">
                         <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Avg Stay</span>
-                        <div className="text-xl font-medium text-white">{location.avgStayMinutes || 90}<span className="text-sm text-gray-600">m</span></div>
+                        <div className="text-xl font-medium text-white">{location.avgStayMinutes}<span className="text-sm text-gray-600">m</span></div>
                     </div>
                 </div>
 
@@ -102,15 +124,15 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
                         Access Info
                     </h3>
 
-                    {location.openHours && (
+                    {hours && (
                         <div className="bg-[#0A0A0A] border border-white/5 rounded-xl p-4">
                             <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                <div className="text-gray-500">Tonight</div>
-                                <div className="text-right text-brand-accent font-bold">Open until 2AM</div>
-                                {/* Simple hardcode for visuals, would use real logic */}
+                                <div className="text-gray-500">Right now</div>
+                                <div className={`text-right font-bold ${hours.open ? 'text-brand-accent' : 'text-gray-400'}`}>{hours.label}</div>
                             </div>
                         </div>
                     )}
+                    {location.address && <p className="text-sm text-gray-400">{location.address}</p>}
                 </div>
 
                 {/* "Insider Tip" Box */}

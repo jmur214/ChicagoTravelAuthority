@@ -1,6 +1,6 @@
 import React from 'react';
 import SuggestionCarousel from './SuggestionCarousel';
-import type { Location } from '../api/client';
+import type { Location } from '@cta/shared';
 
 interface CTADashboardProps {
     onPlan: () => void;

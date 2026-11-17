@@ -1,58 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import type { Category } from '../../../shared';
-import { fetchCategories } from '../api/client';
+import React, { useState } from 'react';
+import type { PlanRequestInput } from '@cta/shared';
+import { useCategories } from '../hooks/useApiData';
+import { visibleCategories } from '../lib/categories';
+import { toZonedWallTime, zonedWallTimeToDate } from '../lib/datetime';
 
 interface PlannerWizardProps {
-    onSubmit: (criteria: any) => void;
+    onSubmit: (criteria: PlanRequestInput) => void;
     onCancel: () => void;
 }
 
+const TOTAL_STEPS = 4;
+
+/** Neighborhood "scenes". Sent as `neighborhoods`; the planner doesn't score on them yet. */
+const ZONES = [
+    { name: 'Trendy Zone (Wicker Park)', desc: 'Hipster bars, vintage shops, and tacos.' },
+    { name: 'High Energy (River North)', desc: 'Upscale clubs, bottle service, and chaos.' },
+    { name: 'Rooftop Ridge (Loop)', desc: 'Views, tourists, and expensive drinks.' },
+    { name: 'Divey Strip (Logan Square)', desc: 'Cheap beer, pinball, and flannel.' },
+    { name: 'Hidden Gems (West Loop)', desc: 'Industrial chic and michelin stars.' },
+];
+
+const CATEGORY_GRADIENTS = [
+    'from-blue-500 to-cyan-400',
+    'from-purple-600 to-indigo-500',
+    'from-pink-500 to-rose-500',
+    'from-yellow-700 to-yellow-600',
+    'from-red-600 to-orange-500',
+    'from-green-500 to-emerald-400',
+    'from-teal-500 to-green-400',
+    'from-indigo-600 to-purple-600',
+];
+
 const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => {
     const [step, setStep] = useState(1);
-
-    // State
     const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
     const [selectedZone, setSelectedZone] = useState<string | null>(null);
-    const [energyLevel, setEnergyLevel] = useState<number>(3); // 1 (Chill) to 5 (Chaotic)
-    const [startTime, setStartTime] = useState(new Date().toISOString().slice(0, 16));
+    const [energyLevel, setEnergyLevel] = useState(3); // 1 (Chill) to 5 (Chaos)
+    // Chicago wall-clock time, regardless of the device's timezone.
+    const [startTime, setStartTime] = useState(() => toZonedWallTime(new Date()));
     const [budget, setBudget] = useState(2);
 
-    // Data
-    const [categories, setCategories] = useState<Category[]>([]);
+    const { data: allCategories = [] } = useCategories();
+    const categories = visibleCategories(allCategories);
 
-    useEffect(() => {
-        fetchCategories().then(data => {
-            // Filter out 'Folder' if strictly structural
-            setCategories(data.filter(c => c.name !== 'Folder'));
-        });
-    }, []);
+    const handleNext = () => setStep(prev => Math.min(prev + 1, TOTAL_STEPS));
+    const handleBack = () => setStep(prev => Math.max(prev - 1, 1));
 
-    const handleNext = () => setStep(prev => prev + 1);
-    const handleBack = () => setStep(prev => prev - 1);
+    const toggleCategory = (id: number) =>
+        setSelectedCategoryIds(prev => (prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]));
 
     const handleSubmit = () => {
         onSubmit({
             categoryIds: selectedCategoryIds,
-            neighborhoods: selectedZone ? [selectedZone] : [], // Pass zone as neighborhood for now
-            startTime,
+            neighborhoods: selectedZone ? [selectedZone] : [],
+            // datetime-local has no timezone: interpret it as Chicago time and send an exact instant.
+            startTime: zonedWallTimeToDate(startTime).toISOString(),
             budget,
-            energyLevel
+            energyLevel,
         });
-    };
-
-    // Helper to get color for category
-    const getCategoryColor = (index: number) => {
-        const gradients = [
-            'from-blue-500 to-cyan-400',
-            'from-purple-600 to-indigo-500',
-            'from-pink-500 to-rose-500',
-            'from-yellow-700 to-yellow-600',
-            'from-red-600 to-orange-500',
-            'from-green-500 to-emerald-400',
-            'from-teal-500 to-green-400',
-            'from-indigo-600 to-purple-600'
-        ];
-        return gradients[index % gradients.length];
     };
 
     // --- STEPS RENDER ---
@@ -70,14 +75,11 @@ const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => 
                 {categories.map((cat, index) => (
                     <button
                         key={cat.id}
-                        onClick={() => {
-                            if (selectedCategoryIds.includes(cat.id)) setSelectedCategoryIds(prev => prev.filter(id => id !== cat.id));
-                            else setSelectedCategoryIds(prev => [...prev, cat.id]);
-                        }}
+                        onClick={() => toggleCategory(cat.id)}
                         className={`relative h-24 rounded-2xl overflow-hidden group transition-all duration-300 ${selectedCategoryIds.includes(cat.id) ? 'scale-105 ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'hover:scale-95 opacity-80'
                             }`}
                     >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${getCategoryColor(index)} opacity-80 group-hover:opacity-100 transition`}></div>
+                        <div className={`absolute inset-0 bg-gradient-to-br ${CATEGORY_GRADIENTS[index % CATEGORY_GRADIENTS.length]} opacity-80 group-hover:opacity-100 transition`}></div>
                         <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
                             <span className="text-lg font-bold uppercase tracking-widest text-white drop-shadow-md leading-tight">{cat.name}</span>
                         </div>
@@ -95,13 +97,7 @@ const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => 
             </div>
 
             <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2">
-                {[
-                    { name: 'Trendy Zone (Wicker Park)', desc: 'Hipster bars, vintage shops, and tacos.' },
-                    { name: 'High Energy (River North)', desc: 'Upscale clubs, bottle service, and chaos.' },
-                    { name: 'Rooftop Ridge (Loop)', desc: 'Views, tourists, and expensive drinks.' },
-                    { name: 'Divey Strip (Logan Square)', desc: 'Cheap beer, pinball, and flannel.' },
-                    { name: 'Hidden Gems (West Loop)', desc: 'Industrial chic and michelin stars.' }
-                ].map(zone => (
+                {ZONES.map(zone => (
                     <button
                         key={zone.name}
                         onClick={() => setSelectedZone(zone.name)}
@@ -156,7 +152,7 @@ const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => 
 
             <div className="bg-white/5 p-6 rounded-2xl border border-white/10 space-y-6">
                 <div>
-                    <label className="block text-xs uppercase text-gray-500 mb-2">Start Time</label>
+                    <label className="block text-xs uppercase text-gray-500 mb-2">Start Time (Chicago)</label>
                     <input
                         type="datetime-local"
                         value={startTime}
@@ -190,7 +186,7 @@ const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => 
             {/* Header / Nav */}
             <div className="flex justify-between items-center mb-8">
                 <div className="flex gap-2">
-                    {[1, 2, 3, 4].map(i => (
+                    {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map(i => (
                         <div key={i} className={`h-1.5 w-8 rounded-full transition-colors ${step >= i ? 'bg-white' : 'bg-white/10'}`}></div>
                     ))}
                 </div>
@@ -215,10 +211,10 @@ const PlannerWizard: React.FC<PlannerWizardProps> = ({ onSubmit, onCancel }) => 
                 </button>
 
                 <button
-                    onClick={step === 4 ? handleSubmit : handleNext}
+                    onClick={step === TOTAL_STEPS ? handleSubmit : handleNext}
                     className="bg-brand-primary text-white px-8 py-3 rounded-xl font-bold shadow-[0_0_20px_rgba(255,59,255,0.4)] hover:shadow-[0_0_30px_rgba(255,59,255,0.6)] hover:scale-105 transition-all text-sm uppercase tracking-widest"
                 >
-                    {step === 4 ? 'Generate Plan' : 'Next Step'}
+                    {step === TOTAL_STEPS ? 'Generate Plan' : 'Next Step'}
                 </button>
             </div>
         </div>

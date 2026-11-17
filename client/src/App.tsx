@@ -1,106 +1,83 @@
-import { useEffect, useState, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ItineraryItem, PlanRequestInput } from '@cta/shared';
+import { api } from './api/client';
+import { errorMessage } from './api/http';
+import { useApiData } from './hooks/useApiData';
+import { EMPTY_FILTERS, filterLocations, type Filters } from './lib/filters';
 import MapComponent from './components/Map';
 import PlannerWizard from './components/PlannerWizard';
 import Itinerary from './components/Itinerary';
-import type { ItineraryItem } from './components/Itinerary';
-import ImportModal from './components/ImportModal';
-import LocationModal from './components/LocationModal';
 import LocationDetails from './components/LocationDetails';
-import AdminDashboard from './components/AdminDashboard';
-import { fetchLocations, generatePlan } from './api/client';
-import type { Location } from './api/client';
-
-// V2 Components
 import HeroEntrance from './components/HeroEntrance';
 import CTADashboard from './components/CTADashboard';
 import FloatingActionCluster from './components/FloatingActionCluster';
 import SuggestionCarousel from './components/SuggestionCarousel';
 import FilterBar from './components/FilterBar';
 
+// Admin tools are only for curators; keep them out of the main bundle.
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+
 type ViewState = 'ENTRANCE' | 'DASHBOARD' | 'MAP';
 
+const PLAN_STORAGE_KEY = 'chicago_planner_plan';
+
+function loadSavedPlan(): ItineraryItem[] | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) ?? 'null');
+    return Array.isArray(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
-  const [locations, setLocations] = useState<Location[]>([]);
+  const fetchPublicLocations = useCallback(() => api.locations.list(), []);
+  const { data: locations = [], reload: reloadLocations } = useApiData(fetchPublicLocations);
 
   // App State
   const [viewState, setViewState] = useState<ViewState>('ENTRANCE');
   const [showPlanner, setShowPlanner] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   // Selection State
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
-  const [plan, setPlan] = useState<ItineraryItem[] | null>(() => {
-    const saved = localStorage.getItem('chicago_planner_plan');
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  // Filter State (for filtering map)
-  const [activeFilters, setActiveFilters] = useState<any>({});
+  const [plan, setPlan] = useState<ItineraryItem[] | null>(loadSavedPlan);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   useEffect(() => {
-    fetchLocations().then(setLocations);
-  }, []);
-
-  useEffect(() => {
-    if (plan) localStorage.setItem('chicago_planner_plan', JSON.stringify(plan));
-    else localStorage.removeItem('chicago_planner_plan');
+    if (plan) localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan));
+    else localStorage.removeItem(PLAN_STORAGE_KEY);
   }, [plan]);
 
-  const handlePlanSubmit = async (criteria: any) => {
-    console.log("Generating plan with:", criteria);
+  const handlePlanSubmit = async (criteria: PlanRequestInput) => {
     try {
-      const result = await generatePlan(criteria);
-
-      if (Array.isArray(result)) {
-        // Ensure we clear conflicts
-        setSelectedLocationId(null);
-        setShowFilters(false);
-        setShowPlanner(false);
-        setViewState('MAP'); // Switch to Map view to show plan
-        setPlan(result);
-      } else {
-        console.error("Plan generation returned invalid format:", result);
-        alert("Could not generate plan. Please try different criteria.");
-        setShowPlanner(false);
+      const { items } = await api.plan(criteria);
+      if (items.length === 0) {
+        alert('No places matched those choices. Try other categories or a bigger budget.');
+        return;
       }
+      setSelectedLocationId(null);
+      setShowFilters(false);
+      setShowPlanner(false);
+      setViewState('MAP');
+      setPlan(items);
     } catch (err) {
-      console.error("Plan generation failed:", err);
-      alert("Failed to plan. Please try again.");
+      alert(`Failed to plan: ${errorMessage(err)}`);
     }
   };
 
   const handleLocationSelect = (id: number) => {
     setSelectedLocationId(id);
-    setViewState('MAP'); // Ensure we go to map if selecting from dashboard
+    setViewState('MAP');
   };
 
-  // Filter Logic
-  const mapLocations = useMemo(() => {
-    let filtered = locations;
+  const mapLocations = useMemo(() => filterLocations(locations, filters), [locations, filters]);
 
-    // Apply tag/category filter
-    if (activeFilters.primaryTag && activeFilters.primaryTag !== 'All') {
-      filtered = filtered.filter(l =>
-        l.categories?.some(c => c.name === activeFilters.primaryTag) ||
-        l.tags?.some(t => t.tag.name === activeFilters.primaryTag) // Fallback to tags for now
-      );
-    }
-    // Apply search filter
-    if (activeFilters.search) {
-      const q = activeFilters.search.toLowerCase();
-      filtered = filtered.filter(l => l.name.toLowerCase().includes(q) || l.description?.toLowerCase().includes(q));
-    }
-
-    return filtered;
-  }, [locations, activeFilters]);
-
-  const routeCoords: [number, number][] | undefined = plan ? plan.map(item => {
-    if (item.coords) return [item.coords.lat, item.coords.lng] as [number, number];
-    const loc = locations.find(l => l.id === item.locationId);
-    return loc ? [loc.latitude, loc.longitude] as [number, number] : [0, 0] as [number, number];
-  }).filter(c => c[0] !== 0) : undefined;
+  const routeCoords = useMemo(
+    () => plan?.map(item => [item.coords.lat, item.coords.lng] as [number, number]),
+    [plan],
+  );
 
   const selectedLocation = useMemo(() =>
     locations.find(l => l.id === selectedLocationId),
@@ -158,7 +135,7 @@ function App() {
                   <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400">Filters</h2>
                   <button onClick={() => setShowFilters(false)} className="text-white hover:text-brand-primary">✕</button>
                 </div>
-                <FilterBar onFilterChange={setActiveFilters} />
+                <FilterBar filters={filters} onChange={setFilters} />
               </div>
             </div>
           )}
@@ -212,16 +189,17 @@ function App() {
               <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Your Night</h2>
               <button onClick={() => setPlan(null)} className="text-xs text-red-400 hover:text-red-300 uppercase tracking-widest font-bold">Clear</button>
             </div>
-            <Itinerary items={plan} onClose={() => setPlan(null)} />
+            <Itinerary items={plan} />
           </div>
         </div>
       )}
 
       {/* Admin Dashboard Modal */}
-      {showAdmin && <AdminDashboard onClose={() => { setShowAdmin(false); fetchLocations().then(setLocations); }} />}
-
-      {/* Import Modal */}
-      {showImport && <ImportModal onClose={() => setShowImport(false)} />}
+      {showAdmin && (
+        <Suspense fallback={null}>
+          <AdminDashboard onClose={() => { setShowAdmin(false); reloadLocations(); }} />
+        </Suspense>
+      )}
 
     </div>
   );

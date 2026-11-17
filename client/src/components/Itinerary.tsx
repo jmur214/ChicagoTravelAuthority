@@ -1,19 +1,9 @@
 import React from 'react';
-
-export interface ItineraryItem {
-    order: number;
-    locationId: number;
-    name: string;
-    arrivalTime: string;
-    reason: string;
-    travelTimeMinutes?: number;
-    matchScore?: number;
-    coords?: { lat: number, lng: number };
-}
+import type { ItineraryItem } from '@cta/shared';
+import { formatClockTime } from '../lib/datetime';
 
 interface ItineraryProps {
     items: ItineraryItem[];
-    onClose: () => void;
 }
 
 const Itinerary: React.FC<ItineraryProps> = ({ items }) => {
@@ -44,9 +34,9 @@ const Itinerary: React.FC<ItineraryProps> = ({ items }) => {
                             <div className="p-4">
                                 <div className="flex justify-between items-start mb-1">
                                     <span className="text-xs font-bold text-gray-400 font-mono tracking-widest uppercase">
-                                        {new Date(item.arrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {formatClockTime(item.arrivalTime)}
                                     </span>
-                                    {item.travelTimeMinutes !== undefined && item.travelTimeMinutes > 0 && (
+                                    {item.travelTimeMinutes > 0 && (
                                         <div className="flex items-center gap-1 text-[10px] text-gray-500">
                                             <span>🚗</span>
                                             <span>{item.travelTimeMinutes}m</span>
@@ -63,7 +53,7 @@ const Itinerary: React.FC<ItineraryProps> = ({ items }) => {
                                 </div>
 
                                 <div className="flex justify-between items-center">
-                                    {item.matchScore && (
+                                    {item.matchScore > 0 && (
                                         <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${item.matchScore > 80 ? 'text-green-400 bg-green-900/30' : 'text-gray-400 bg-white/5'}`}>
                                             {item.matchScore}% Vibe Match
                                         </span>

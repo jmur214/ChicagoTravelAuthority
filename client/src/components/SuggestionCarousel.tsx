@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import type { Location } from '../api/client';
+import type { Location } from '@cta/shared';
 
 interface SuggestionCarouselProps {
     locations: Location[];
@@ -30,10 +30,9 @@ const SuggestionCarousel: React.FC<SuggestionCarouselProps> = ({ locations, onSe
                         className="glass-card min-w-[260px] max-w-[260px] h-[140px] rounded-xl p-4 flex flex-col justify-end relative overflow-hidden group cursor-pointer snap-start hover:-translate-y-1 transition-transform"
                     >
                         {/* Background Image (If metadata exists, else gradient) */}
-                        {/* Note: Safe cast for demo */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10"></div>
-                        {(loc.metadata as any)?.imageUrl ? (
-                            <img src={(loc.metadata as any).imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition duration-500" alt={loc.name} />
+                        {loc.metadata?.imageUrl ? (
+                            <img src={loc.metadata.imageUrl} className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition duration-500" alt={loc.name} />
                         ) : (
                             <div className={`absolute inset-0 bg-gradient-to-br from-gray-800 to-black opacity-60 group-hover:opacity-80 transition duration-500`}></div>
                         )}

@@ -1,102 +1,61 @@
-import type { Location, Tag, Category } from '../../../shared';
-export type { Location, Tag, Category };
+import type {
+    Category,
+    CategoryCreateInput,
+    CategoryUpdateInput,
+    ImportResult,
+    Location,
+    LocationCreateInput,
+    LocationUpdateInput,
+    PlanRequestInput,
+    PlanResponse,
+    Tag,
+    TagCreateInput,
+    TrainSnapshot,
+    TransitRoute,
+} from '@cta/shared';
+import { request } from './http';
 
-const API_URL = 'http://localhost:3000/api';
+export type { Category, Location, Tag };
 
-// Locations
-export const fetchLocations = async (includeUnverified = false): Promise<Location[]> => {
-    const query = includeUnverified ? '?all=true' : '';
-    const response = await fetch(`${API_URL}/locations${query}`);
-    if (!response.ok) throw new Error('Failed to fetch locations');
-    return response.json();
-};
+/** Typed client for the v1 API. Every call throws `ApiError` on failure. */
+export const api = {
+    locations: {
+        /** `includeUnconfirmed` = admin view (also returns locations pending review). */
+        list: (includeUnconfirmed = false) =>
+            request<Location[]>('GET', `/locations${includeUnconfirmed ? '?all=true' : ''}`),
+        get: (id: number) => request<Location>('GET', `/locations/${id}`),
+        create: (data: LocationCreateInput) => request<Location>('POST', '/locations', data),
+        /** Partial update: only the fields you pass are changed. */
+        update: (id: number, data: LocationUpdateInput) => request<Location>('PATCH', `/locations/${id}`, data),
+        remove: (id: number) => request<void>('DELETE', `/locations/${id}`),
+    },
 
-export type LocationPayload = Omit<Partial<Location>, 'tags' | 'categories'> & {
-    tags: number[];
-    categories?: number[];
-};
+    categories: {
+        list: () => request<Category[]>('GET', '/categories'),
+        create: (data: CategoryCreateInput) => request<Category>('POST', '/categories', data),
+        update: (id: number, data: CategoryUpdateInput) => request<Category>('PATCH', `/categories/${id}`, data),
+        remove: (id: number) => request<void>('DELETE', `/categories/${id}`),
+    },
 
-export const createLocation = async (data: LocationPayload): Promise<Location> => {
-    const response = await fetch(`${API_URL}/locations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error('Failed to create location');
-    return response.json();
-};
+    tags: {
+        list: () => request<Tag[]>('GET', '/tags'),
+        create: (data: TagCreateInput) => request<Tag>('POST', '/tags', data),
+        rename: (id: number, name: string) => request<Tag>('PATCH', `/tags/${id}`, { name }),
+        remove: (id: number) => request<void>('DELETE', `/tags/${id}`),
+        addCategory: (id: number, categoryId: number) => request<Tag>('POST', `/tags/${id}/categories`, { categoryId }),
+        removeCategory: (id: number, categoryId: number) => request<Tag>('DELETE', `/tags/${id}/categories/${categoryId}`),
+    },
 
-export const updateLocation = async (id: number, data: LocationPayload): Promise<Location> => {
-    const response = await fetch(`${API_URL}/locations/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error('Failed to update location');
-    return response.json();
-};
+    plan: (criteria: PlanRequestInput) => request<PlanResponse>('POST', '/plan', criteria),
 
-export const deleteLocation = async (id: number): Promise<void> => {
-    const response = await fetch(`${API_URL}/locations/${id}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error('Failed to delete location');
-};
+    importKml: (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        return request<ImportResult>('POST', '/import', form);
+    },
 
-// Tags
-export const fetchTags = async (): Promise<Tag[]> => {
-    const response = await fetch(`${API_URL}/tags`);
-    if (!response.ok) throw new Error('Failed to fetch tags');
-    return response.json();
-};
-
-export const createTag = async (name: string): Promise<Tag> => {
-    const response = await fetch(`${API_URL}/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, categoryId: 1 }) // Default category for now
-    });
-    if (!response.ok) throw new Error('Failed to create tag');
-    return response.json();
-};
-
-export const updateTag = async (id: number, data: Partial<Tag>): Promise<Tag> => {
-    const response = await fetch(`${API_URL}/tags/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error('Failed to update tag');
-    return response.json();
-};
-
-export const deleteTag = async (id: number): Promise<void> => {
-    const response = await fetch(`${API_URL}/tags/${id}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error('Failed to delete tag');
-};
-
-// Categories
-export const fetchCategories = async (): Promise<Category[]> => {
-    const response = await fetch(`${API_URL}/categories`);
-    if (!response.ok) throw new Error('Failed to fetch categories');
-    return response.json();
-};
-
-// Import/Plan
-export const importKml = async (file: File): Promise<any> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch(`${API_URL}/import`, {
-        method: 'POST',
-        body: formData
-    });
-    if (!response.ok) throw new Error('Import failed');
-    return response.json();
-};
-
-export const generatePlan = async (criteria: any): Promise<any> => {
-    const response = await fetch(`${API_URL}/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(criteria)
-    });
-    return response.json();
+    transit: {
+        trains: () => request<TrainSnapshot>('GET', '/trains'),
+        routes: () => request<TransitRoute[]>('GET', '/gtfs/routes'),
+    },
 };
