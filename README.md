@@ -61,7 +61,7 @@ and it launches full-screen with its own icon, like an app.
 
 ```bash
 npm run dev:server
-npm run dev:client -- --host     # prints a "Network" URL like http://192.168.1.23:5173
+npm run dev:phone                # like dev:client, but reachable from your phone; prints a "Network" URL
 ```
 
 Open that URL on your phone. Everything works except **"Start near me"**: Safari only shares
