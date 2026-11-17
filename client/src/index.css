@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;700;900&display=swap');
+/* The Outfit font is loaded in index.html. */
 @import "tailwindcss";
 
 /*
@@ -38,6 +38,16 @@ body,
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* App-like feel */
+}
+
+/* iOS Safari zooms the page when focusing an input smaller than 16px. */
+@media (max-width: 640px) {
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Scrollbar Styling */

@@ -52,6 +52,35 @@ npx prisma migrate resolve --applied 20261117000000_sync_schema_drift
 npx prisma migrate deploy
 ```
 
+### Using it on your iPhone
+
+The web app is phone-friendly and installable: open it in Safari, tap **Share → Add to Home Screen**,
+and it launches full-screen with its own icon, like an app.
+
+**Quick test on the same Wi-Fi as your computer**
+
+```bash
+npm run dev:server
+npm run dev:client -- --host     # prints a "Network" URL like http://192.168.1.23:5173
+```
+
+Open that URL on your phone. Everything works except **"Start near me"**: Safari only shares
+location over HTTPS, so pick a neighborhood instead.
+
+**Production (one process serves the app and the API)**
+
+```bash
+npm run build
+npm start                         # http://localhost:3000 — app at /, API at /api/v1
+```
+
+Deploy that to any Node host with Postgres (Render, Railway, Fly.io, …). Set `DATABASE_URL`, run
+`npm run db:migrate -w server` once, and use `npm run build` / `npm start` as the build and start commands.
+Hosts provide HTTPS, so "Start near me" works there.
+
+> Every endpoint — including edit, delete and import — is open to anyone who has the URL.
+> Fine while it's just you, but add at least a password gate before sharing the link.
+
 ### Everyday commands (from the repo root)
 
 | Command | What it does |
@@ -60,6 +89,7 @@ npx prisma migrate deploy
 | `npm run lint` | ESLint (client) |
 | `npm test` | Unit tests everywhere. Set `TEST_DATABASE_URL` (a DB whose name contains `test`) to also run the API integration tests — **it gets wiped**. |
 | `npm run build` | Production build of all three packages |
+| `npm start` | Run the built server; it also serves the built web app |
 
 CI (`.github/workflows/ci.yml`) runs all of the above, including integration tests against Postgres.
 

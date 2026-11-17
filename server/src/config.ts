@@ -16,6 +16,8 @@ const EnvSchema = z.object({
     CTA_POLL_INTERVAL_MS: z.coerce.number().int().min(5000).default(20000),
     GTFS_DIR: z.string().default(path.resolve(__dirname, '../../google_transit')),
     MAX_UPLOAD_MB: z.coerce.number().positive().default(10),
+    /** Built web app to serve alongside the API (if present). Run `npm run build` first. */
+    CLIENT_DIST_DIR: z.string().default(path.resolve(__dirname, '../../client/dist')),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -37,4 +39,5 @@ export const config = {
     },
     gtfsDir: env.GTFS_DIR,
     maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
+    clientDistDir: env.CLIENT_DIST_DIR,
 } as const;

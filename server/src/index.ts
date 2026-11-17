@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { config } from './config';
 import { createApp } from './app';
 import { prisma } from './lib/prisma';
@@ -7,8 +9,11 @@ import { GtfsService } from './services/transit/gtfsService';
 const cta = new CtaService(config.cta.apiKey);
 const gtfs = new GtfsService(config.gtfsDir);
 
-const server = createApp({ cta, gtfs }).listen(config.port, () => {
+const clientDir = fs.existsSync(path.join(config.clientDistDir, 'index.html')) ? config.clientDistDir : undefined;
+
+const server = createApp({ cta, gtfs, clientDir }).listen(config.port, () => {
     console.log(`API listening on http://localhost:${config.port}/api/v1 (${config.env})`);
+    if (clientDir) console.log(`Serving the web app at http://localhost:${config.port}/ from ${clientDir}`);
     if (config.isProduction && !config.corsOrigins) {
         console.warn('[config] CORS_ORIGINS is not set — any website can call this API.');
     }
