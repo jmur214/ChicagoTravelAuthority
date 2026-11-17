@@ -35,10 +35,9 @@ the API is treated as a public contract (see `docs/API.md`).
 ## Key Features
 1. **KML/KMZ import** (`services/importService.ts`): idempotent by name + ~10m proximity; new places are unconfirmed.
 2. **Map:** category-styled markers, time-of-day heatmap, live CTA trains (mock without `CTA_TRAIN_API_KEY`), "L" lines from a GTFS feed (`GTFS_DIR`).
-3. **Planner** (`services/planning/planner.ts`, pure + tested): greedy — best score of proximity, category/tag matches and budget, skipping places closed on arrival. Only confirmed locations.
+3. **Planner** (`services/planning/planner.ts`, pure + tested): greedy — best score of travel time, category/tag matches, budget and energy (keyword heuristic in `shared/src/energy.ts`), skipping places closed on arrival. Only confirmed locations. Starts from a neighborhood, the user's location, or the Loop.
+4. **Plan editing** (`client/src/lib/plan.ts`): add/remove/reorder/change mode, re-timed locally via `scheduleStops` (shared). Saved in localStorage.
 
 ## Known gaps / next steps
 - **No authentication** — all writes are public.
-- `energyLevel` and `neighborhoods` are accepted by `/plan` but not used in scoring.
-- "Add to Plan" in location details is a placeholder.
 - Consider TanStack Query on the client and OpenAPI generation (for Swift models).

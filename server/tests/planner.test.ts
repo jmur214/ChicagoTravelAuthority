@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildItinerary, type PlannerCandidate, type PlannerCriteria } from '../src/services/planning/planner';
+import { buildItinerary, targetEnergy, vibeMatchPercent, type PlannerCandidate, type PlannerCriteria } from '../src/services/planning/planner';
 
 const ALWAYS_OPEN = Object.fromEntries(
     ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(d => [d, { isOpen: true, open: '00:00', close: '00:00' }]),
@@ -88,5 +88,51 @@ describe('buildItinerary', () => {
         const pricey = cand({ id: 2, avgCost: 4 });
         const plan = buildItinerary([pricey, cheap], criteria({ budget: 1, maxStops: 1 }));
         expect(plan[0].locationId).toBe(1);
+    });
+
+    it('marks every planner pick as open on arrival (or unknown) and carries the travel mode', () => {
+        const plan = buildItinerary([cand({ id: 1, openHours: ALWAYS_OPEN }), cand({ id: 2 })], criteria({ transportMode: 'transit' }));
+        expect(plan.map(p => p.isOpenOnArrival).sort()).toEqual([null, true].sort());
+        expect(plan.every(p => p.travelMode === 'transit')).toBe(true);
+    });
+
+    describe('energy level', () => {
+        const museum = cand({ id: 1, tagNames: ['Museum'] });
+        const club = cand({ id: 2, tagNames: ['Nightclub', 'Dance'] });
+        const unknown = cand({ id: 3, tagNames: ['Misc'] });
+
+        it('prefers calm places for a chill night and loud ones for chaos', () => {
+            expect(buildItinerary([club, museum], criteria({ energyLevel: 1, maxStops: 1 }))[0].locationId).toBe(1);
+            expect(buildItinerary([museum, club], criteria({ energyLevel: 5, maxStops: 1 }))[0].locationId).toBe(2);
+        });
+
+        it('warms up: the first stop targets one level below the requested energy', () => {
+            expect(targetEnergy(5, 0)).toBe(4);
+            expect(targetEnergy(5, 1)).toBe(5);
+            expect(targetEnergy(1, 0)).toBe(1);
+            const bar = cand({ id: 4, tagNames: ['Live Music'] }); // energy 4
+            const plan = buildItinerary([club, bar], criteria({ energyLevel: 5 }));
+            expect(plan.map(p => p.locationId)).toEqual([4, 2]);
+        });
+
+        it('does not penalize places whose energy is unknown', () => {
+            // Unknown vs. a perfect-energy match at the same spot: tie-break by input order.
+            expect(buildItinerary([unknown, museum], criteria({ energyLevel: 1, maxStops: 1 }))[0].locationId).toBe(3);
+        });
+    });
+});
+
+describe('vibeMatchPercent', () => {
+    it('is high for a perfect fit and ignores distance', () => {
+        expect(vibeMatchPercent({ matches: 1, budgetSteps: 0, energySteps: 0 }, true)).toBe(99);
+    });
+
+    it('drops when nothing requested matches, or budget/energy are off', () => {
+        expect(vibeMatchPercent({ matches: 0, budgetSteps: 0, energySteps: 0 }, true)).toBe(50);
+        expect(vibeMatchPercent({ matches: 1, budgetSteps: 3, energySteps: 4 }, true)).toBe(50);
+    });
+
+    it('treats unknown budget/energy as neutral', () => {
+        expect(vibeMatchPercent({ matches: 0, budgetSteps: null, energySteps: null }, false)).toBe(99);
     });
 });

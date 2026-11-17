@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Circle, MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Polyline, TileLayer, useMap, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { CHICAGO_CENTER, type Location, type TransitRoute } from '@cta/shared';
@@ -62,7 +62,9 @@ const MapComponent: React.FC<MapProps> = ({ locations, routeCoords, onLocationSe
 
     return (
         <div className="relative h-full w-full overflow-hidden bg-[#111] perspective-[1000px]">
-            <MapContainer center={CENTER} zoom={13} scrollWheelZoom className="h-full w-full bg-[#111]">
+            <MapContainer center={CENTER} zoom={13} scrollWheelZoom zoomControl={false} className="h-full w-full bg-[#111]">
+                {/* Top-right keeps it clear of the back button and bottom sheets. */}
+                <ZoomControl position="topright" />
                 <Map3DEffect />
                 <TileLayer attribution="&copy; CARTO" url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 

@@ -169,6 +169,24 @@ describe.skipIf(!runIntegration)('API (integration)', () => {
             expect(res.body.items[0].reason).toBe('Matches: Nightlife');
         });
 
+        it('starts from the chosen neighborhood and echoes the resolved inputs', async () => {
+            await createLocation({ name: 'Wicker Spot', isConfirmed: true, latitude: 41.9105, longitude: -87.6775 });
+            await createLocation({ name: 'Loop Spot', isConfirmed: true, latitude: 41.8821, longitude: -87.6279 });
+
+            const res = await api
+                .post('/api/v1/plan')
+                .send({ neighborhood: 'the-loop', startTime: '2026-11-17T01:00:00Z', transportMode: 'walk', maxStops: 1 })
+                .expect(200);
+            expect(res.body.items[0]).toMatchObject({ name: 'Loop Spot', travelMode: 'walk', isOpenOnArrival: null });
+            expect(res.body).toMatchObject({
+                startTime: '2026-11-17T01:00:00.000Z',
+                startLocation: { lat: 41.882, lng: -87.6278 },
+                transportMode: 'walk',
+            });
+
+            await api.post('/api/v1/plan').send({ neighborhood: 'atlantis' }).expect(400);
+        });
+
         it('rejects ambiguous start times', async () => {
             await api.post('/api/v1/plan').send({ startTime: '2026-11-17T19:00' }).expect(400);
         });

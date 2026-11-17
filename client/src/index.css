@@ -1,23 +1,25 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;700;900&display=swap');
 @import "tailwindcss";
 
-:root {
+/*
+ * Design tokens. Tailwind v4 reads theme values from @theme (tailwind.config.js
+ * is not used), and generates utilities such as bg-brand-primary,
+ * text-brand-accent, from-brand-primary, font-sans from them.
+ */
+@theme {
   /* Neon Palette */
-  --color-brand-primary: #FF3BFF;
-  /* Electric Pink */
-  --color-brand-accent: #3BFFFF;
-  /* Teal Glow */
-  --color-brand-blue: #00A1DE;
-  /* CTA Blue */
-  --color-brand-red: #C60C30;
-  /* CTA Red */
-  --color-vibe-hidden: #7A00FF;
-  /* Hidden Gem Purple */
-  --color-vibe-divey: #A0A060;
-  /* Divey Green-Gold */
-  --color-vibe-rooftop: #62C5FF;
-  /* Rooftop Blue */
+  --color-brand-primary: #FF3BFF; /* Electric Pink */
+  --color-brand-accent: #3BFFFF;  /* Teal Glow */
+  --color-brand-blue: #00A1DE;    /* CTA Blue */
+  --color-brand-red: #C60C30;     /* CTA Red */
+  --color-vibe-hidden: #7A00FF;   /* Hidden Gem Purple */
+  --color-vibe-divey: #A0A060;    /* Divey Green-Gold */
+  --color-vibe-rooftop: #62C5FF;  /* Rooftop Blue */
 
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
   --bg-dark: #050505;
   --bg-darker: #020202;
 }
@@ -181,8 +183,40 @@ body,
   }
 }
 
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
 }
 
 .animate-slideUp {

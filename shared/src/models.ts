@@ -1,5 +1,5 @@
 import type { OpenHours } from './openHours';
-import type { MarkerShape } from './schemas';
+import type { MarkerShape, TransportMode } from './schemas';
 
 // ---------------------------------------------------------------------------
 // Response shapes returned by the API (JSON). Dates are ISO-8601 strings.
@@ -74,14 +74,21 @@ export interface ItineraryItem {
     departureTime: string;
     reason: string;
     coords: { lat: number; lng: number };
-    /** Minutes to travel here from the previous stop. */
+    /** Minutes to travel here from the previous stop (or the start point). */
     travelTimeMinutes: number;
-    /** 10–99 */
+    travelMode: TransportMode;
+    /** 10–99 for planner picks; 0 for stops added by hand. */
     matchScore: number;
+    /** Whether the place is open when you'd arrive; null if its hours are unknown. */
+    isOpenOnArrival: boolean | null;
 }
 
 export interface PlanResponse {
     items: ItineraryItem[];
+    /** The resolved inputs, so clients can re-time the plan after edits. */
+    startTime: string;
+    startLocation: { lat: number; lng: number };
+    transportMode: TransportMode;
 }
 
 export interface ImportResult {

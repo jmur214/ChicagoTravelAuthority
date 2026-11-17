@@ -1,4 +1,4 @@
-import { CHICAGO_CENTER, OpenHoursSchema, type PlanRequest, type PlanResponse } from '@cta/shared';
+import { CHICAGO_CENTER, getNeighborhood, OpenHoursSchema, type PlanRequest, type PlanResponse } from '@cta/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { buildItinerary, type PlannerCandidate } from './planner';
@@ -33,16 +33,26 @@ export async function generatePlan(request: PlanRequest): Promise<PlanResponse> 
         };
     });
 
+    const startLocation =
+        request.startLocation ?? (request.neighborhood && getNeighborhood(request.neighborhood)?.center) ?? CHICAGO_CENTER;
+    const startTime = request.startTime ? new Date(request.startTime) : new Date();
+
     const items = buildItinerary(candidates, {
-        startLocation: request.startLocation ?? CHICAGO_CENTER,
-        startTime: request.startTime ? new Date(request.startTime) : new Date(),
+        startLocation,
+        startTime,
         durationHours: request.durationHours,
         vibes,
         categoryIds,
         transportMode: request.transportMode,
         budget: request.budget,
+        energyLevel: request.energyLevel,
         maxStops: request.maxStops,
     });
 
-    return { items };
+    return {
+        items,
+        startTime: startTime.toISOString(),
+        startLocation: { lat: startLocation.lat, lng: startLocation.lng },
+        transportMode: request.transportMode,
+    };
 }

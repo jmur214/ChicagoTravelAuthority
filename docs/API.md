@@ -105,16 +105,41 @@ The category named `Folder` is internal (raw KML folder tags) and should be hidd
   "vibes": ["Cocktails"],                  // tag names
   "transportMode": "walk",                 // walk | drive | transit (default drive)
   "budget": 2,                             // 1–4
+  "energyLevel": 4,                        // 1 chill – 5 chaos
   "maxStops": 5,                           // default 5
-  "startLocation": { "lat": 41.88, "lng": -87.63 } // default: the Loop
+  "neighborhood": "wicker-park",           // see NEIGHBORHOODS in shared/src/neighborhoods.ts
+  "startLocation": { "lat": 41.91, "lng": -87.68 } // wins over neighborhood; default: the Loop
 }
 ```
 
 Clients should treat the user's chosen time as Chicago time (see `zonedWallTimeToDate`
 in `shared/src/time.ts`) and send the resulting instant.
 
-Returns `{ "items": ItineraryItem[] }`. Only confirmed locations that are open on arrival
-(or have unknown hours) are considered.
+Response:
+
+```jsonc
+{
+  "items": [{
+    "order": 1, "locationId": 12, "name": "Kingston Mines", "description": "…",
+    "coords": { "lat": 41.93, "lng": -87.65 },
+    "arrivalTime": "…", "departureTime": "…",
+    "travelTimeMinutes": 13, "travelMode": "transit",
+    "reason": "Matches: Nightlife",
+    "matchScore": 88,            // 10–99; 0 for stops a user added by hand
+    "isOpenOnArrival": true      // null when hours are unknown
+  }],
+  "startTime": "…", "startLocation": { "lat": …, "lng": … }, "transportMode": "transit"
+}
+```
+
+How stops are chosen: only confirmed locations that are open on arrival (or have unknown
+hours). Each step picks the best score of travel time, category/tag matches, budget fit and
+energy fit. Energy is estimated from tag/category names (`shared/src/energy.ts`), and the
+first stop aims one level lower as a warm-up.
+
+Editing a plan (add/remove/reorder, change travel mode) doesn't need the server:
+`scheduleStops()` in `shared/src/planning.ts` re-times a list of stops using the
+plan's `startTime`, `startLocation` and `transportMode`.
 
 ## Import
 

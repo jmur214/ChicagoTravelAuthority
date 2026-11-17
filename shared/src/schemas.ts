@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { NEIGHBORHOOD_IDS } from './neighborhoods';
 import { OpenHoursSchema } from './openHours';
 
 // ---------------------------------------------------------------------------
@@ -106,11 +107,12 @@ export const PlanRequestSchema = z.object({
     categoryIds: z.array(id).default([]),
     /** Tag names to match (legacy "vibes"). */
     vibes: z.array(z.string()).default([]),
-    neighborhoods: z.array(z.string()).optional(),
+    /** Start in this neighborhood (see NEIGHBORHOODS). Ignored if startLocation is given. */
+    neighborhood: z.enum(NEIGHBORHOOD_IDS).optional(),
     transportMode: z.enum(TRANSPORT_MODES).default('drive'),
     budget: z.number().int().min(1).max(4).optional(),
     maxStops: z.number().int().min(1).max(10).default(5),
-    /** 1 (chill) – 5 (chaos). Accepted but not yet used for scoring. */
+    /** 1 (chill) – 5 (chaos). Places whose vibe is far from this are ranked lower. */
     energyLevel: z.number().int().min(1).max(5).optional(),
 });
 export type PlanRequestInput = z.input<typeof PlanRequestSchema>;

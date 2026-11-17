@@ -14,10 +14,13 @@ const openStatusLabel = (status: OpenStatus): { label: string; open: boolean } =
 
 interface LocationDetailsProps {
     location: Location;
+    inPlan: boolean;
+    onAddToPlan: () => void;
+    onViewPlan: () => void;
     onClose: () => void;
 }
 
-const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) => {
+const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onAddToPlan, onViewPlan, onClose }) => {
     const imageUrl = location.metadata?.imageUrl;
     const hours = location.openHours ? openStatusLabel(getOpenStatus(location.openHours, new Date())) : null;
 
@@ -166,10 +169,22 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, onClose }) 
                 )}
 
                 {/* Primary Action */}
-                <button className="flex-1 bg-white text-black rounded-full font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2 group">
-                    <span>Add to Plan</span>
-                    <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                </button>
+                {inPlan ? (
+                    <button
+                        onClick={onViewPlan}
+                        className="flex-1 bg-brand-accent/20 border border-brand-accent text-brand-accent rounded-full font-bold text-sm uppercase tracking-widest hover:bg-brand-accent/30 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <span>✓ In Your Plan — View</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={onAddToPlan}
+                        className="flex-1 bg-white text-black rounded-full font-bold text-sm uppercase tracking-widest hover:bg-gray-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2 group"
+                    >
+                        <span>Add to Plan</span>
+                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                )}
             </div>
 
         </div>
