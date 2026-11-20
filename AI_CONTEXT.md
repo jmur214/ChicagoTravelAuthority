@@ -23,6 +23,7 @@ the API is treated as a public contract (see `docs/API.md`).
 - Pure logic goes in `shared/src` (if the server or a mobile app could use it) or `client/src/lib`, with tests.
 - Times of day are Chicago local time (`America/Chicago`), independent of server/device TZ.
 - The `Folder` category is internal (raw KML folder tags) — hide it from users (`FOLDER_CATEGORY_NAME`).
+- Never write guessed values (template hours, default prices, generated copy) into real fields — leave them null.
 - Schema changes: edit `schema.prisma`, then `npx prisma migrate dev --name <change>`. Never `db push`
   against a shared database — that's how the migration history drifted before.
 
@@ -37,6 +38,8 @@ the API is treated as a public contract (see `docs/API.md`).
 2. **Map:** category-styled markers, time-of-day heatmap, live CTA trains (mock without `CTA_TRAIN_API_KEY`), "L" lines from a GTFS feed (`GTFS_DIR`).
 3. **Planner** (`services/planning/planner.ts`, pure + tested): greedy — best score of travel time, category/tag matches, budget and energy (keyword heuristic in `shared/src/energy.ts`), skipping places closed on arrival. Only confirmed locations. Starts from a neighborhood, the user's location, or the Loop.
 4. **Plan editing** (`client/src/lib/plan.ts`): add/remove/reorder/change mode, re-timed locally via `scheduleStops` (shared). Saved in localStorage.
+
+5. **Place data** (`server/src/services/places/`): Google Places (New) provider, coordinate + name matching (`matching.ts`), review queue, per-field provenance (`fieldSources`). Rules: never overwrite `manual` fields, never invent values; missing stays null. Old fake-data scripts were removed; `scripts/audit_place_data.ts` cleans their leftovers.
 
 ## Known gaps / next steps
 - **No authentication** — all writes are public.

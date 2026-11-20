@@ -81,6 +81,35 @@ Hosts provide HTTPS, so "Start near me" works there.
 > Every endpoint — including edit, delete and import — is open to anyone who has the URL.
 > Fine while it's just you, but add at least a password gate before sharing the link.
 
+### Getting accurate place info (Google Places)
+
+Hours, address, phone, website, price, rating and open/closed status come from Google Places.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project, enable
+   **Places API (New)**, and create an API key (restrict it to that API). Google bills per request
+   with a monthly free allowance; check the current pricing page. Matching a few hundred places
+   is roughly one request each.
+2. Add it to `server/.env` as `GOOGLE_PLACES_KEY=...` and restart the server.
+3. **One-time cleanup** of data from the old scripts (template hours, generated descriptions,
+   unreadable hours). Run the report first, then apply:
+   ```bash
+   npm run places:audit -w server
+   npm run places:audit -w server -- --fix
+   ```
+4. In the admin, click **Match & enrich**. Each place is looked up near its saved coordinates:
+   - a single confident match (close by, similar name) is applied automatically;
+   - anything uncertain shows up under **Need a Google match** for you to pick the right listing,
+     search again, or mark "not on Google";
+   - permanently closed places are flagged and hidden from the map.
+   Run it again any time; it also refreshes matches older than 60 days (hours change).
+   The same thing from a terminal: `npm run places:enrich -w server`.
+5. To add a place, use **+ Add New Location → Find it on Google**. It's created with the full
+   listing, then you add tags and categories.
+
+Rules that keep data trustworthy: values you edit by hand are never overwritten by Google;
+your own descriptions are kept (Google's summary only fills empty ones); missing data stays
+empty instead of being guessed; every field records where it came from, shown in the edit form.
+
 ### Everyday commands (from the repo root)
 
 | Command | What it does |

@@ -141,6 +141,44 @@ Editing a plan (add/remove/reorder, change travel mode) doesn't need the server:
 `scheduleStops()` in `shared/src/planning.ts` re-times a list of stops using the
 plan's `startTime`, `startLocation` and `transportMode`.
 
+## Place data (Google Places)
+
+All of these return `503 NOT_CONFIGURED` when the server has no `GOOGLE_PLACES_KEY`, and
+`502 UPSTREAM_ERROR` (with Google's message) when Google rejects a request.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET  | `/places/status` | — | `{ provider: "google", configured }` |
+| GET  | `/places/search?q=&lat=&lng=` | — | `ScoredCandidate[]`, best first (lat/lng optional) |
+| POST | `/locations/:id/enrich` | — | `EnrichResult`: match it (or refresh it if already matched) |
+| POST | `/locations/:id/match` | `{ externalId }` or `{ ignore: true }` | `EnrichResult` |
+| POST | `/locations/from-place` | `{ externalId, name?, isConfirmed? }` | `201 EnrichResult`; `409` if already added |
+
+```jsonc
+// EnrichResult
+{
+  "status": "matched",          // matched | needs_review | no_match | ignored
+  "location": { /* Location */ },
+  "changes": [{ "field": "openHours", "from": null, "to": { /* … */ } }],
+  "candidates": []              // ScoredCandidate[] when needs_review / no_match
+}
+// ScoredCandidate = PlaceCandidate (name, address, latitude, longitude, openHours, phoneNumber,
+//   website, rating, reviewCount, avgCost, businessStatus, googleMapsUrl, types, summary)
+//   + { distanceMeters, nameScore (0–1), confidence: "high" | "medium" | "low" }
+```
+
+Matching: Text Search near the location's coordinates (500 m bias). It auto-applies only when
+exactly one candidate is high-confidence (≤150 m with a similar name, or ≤50 m). Otherwise the
+location gets `matchStatus: "needs_review"` / `"no_match"` and `matchCandidates`.
+
+Locations also carry `businessStatus`, `googleMapsUrl`, `matchStatus`, `matchCandidates`,
+`enrichedAt`, and `fieldSources` (`{ field: { source: "google" | "manual" | "kml" | "estimate", at } }`).
+`PATCH /locations/:id` marks changed fields `manual`, and enrichment never overwrites those.
+`GET /locations` (public) omits permanently closed places, and `/plan` also skips temporarily closed ones.
+
+Opening hours may hold several windows per day:
+`{ "isOpen": true, "open": "11:00", "close": "14:30", "additional": [{ "open": "16:30", "close": "22:00" }] }`.
+
 ## Import
 
 `POST /import` — `multipart/form-data` with a `file` field (KML or KMZ, max 10 MB by default).
