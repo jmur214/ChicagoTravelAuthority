@@ -6,6 +6,7 @@ const loc = (id: number, lat: number, extra: Partial<Location> = {}): Location =
     id, name: `Place ${id}`, description: null, latitude: lat, longitude: -87.63, address: null, googlePlaceId: null,
     phoneNumber: null, metadata: null, avgCost: 2, avgStayMinutes: 60, openHours: null, website: null, menuUrl: null,
     eventsInfo: null, rating: null, reviewCount: null, isConfirmed: true, verifiedVibe: false, userVerifiedCount: 0,
+    businessStatus: null, googleMapsUrl: null, matchStatus: 'unmatched', matchCandidates: null, enrichedAt: null, fieldSources: null,
     createdAt: '', updatedAt: '', tags: [], categories: [], ...extra,
 });
 

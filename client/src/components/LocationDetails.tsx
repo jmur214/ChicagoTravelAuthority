@@ -1,5 +1,11 @@
 import React from 'react';
-import { formatHHMM, getOpenStatus, type Location, type OpenStatus } from '@cta/shared';
+import { DAY_KEYS, describeDayHours, formatHHMM, getOpenStatus, getZonedDayAndMinutes, type Location, type OpenStatus } from '@cta/shared';
+import { businessStatusLabel, formatDate } from '../lib/placeLabels';
+
+const DAY_NAMES = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' } as const;
+
+/** Prefer the place's own Google Maps page; otherwise search its coordinates. */
+const mapsLink = (l: Location) => l.googleMapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${l.latitude},${l.longitude}`;
 
 const openStatusLabel = (status: OpenStatus): { label: string; open: boolean } => {
     switch (status.state) {
@@ -22,7 +28,9 @@ interface LocationDetailsProps {
 
 const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onAddToPlan, onViewPlan, onClose }) => {
     const imageUrl = location.metadata?.imageUrl;
-    const hours = location.openHours ? openStatusLabel(getOpenStatus(location.openHours, new Date())) : null;
+    const closedLabel = businessStatusLabel(location.businessStatus);
+    const hours = location.openHours && !closedLabel ? openStatusLabel(getOpenStatus(location.openHours, new Date())) : null;
+    const today = getZonedDayAndMinutes(new Date()).day;
 
     return (
         <div className="h-full flex flex-col bg-[#050505]/95 backdrop-blur-3xl border-l border-white/5 relative shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-slideInRight">
@@ -68,6 +76,12 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onA
                         {location.name}
                     </h1>
 
+                    {closedLabel && (
+                        <div className="inline-block mb-3 px-3 py-1 rounded-full bg-red-900/60 border border-red-500/40 text-red-200 text-xs font-bold uppercase tracking-widest">
+                            {closedLabel}
+                        </div>
+                    )}
+
                     {/* Tag Cloud */}
                     <div className="flex flex-wrap gap-2">
                         {location.tags.map(t => (
@@ -98,10 +112,11 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onA
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Vibe Score</span>
+                        <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Rating</span>
                         <div className="text-xl font-medium text-white">
                             {location.rating != null ? location.rating.toFixed(1) : '—'} <span className="text-xs text-gray-600">/ 5.0</span>
                         </div>
+                        {location.reviewCount ? <div className="text-[10px] text-gray-600">{location.reviewCount.toLocaleString()} reviews</div> : null}
                     </div>
                     <div className="space-y-1">
                         <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Avg Stay</span>
@@ -115,9 +130,11 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onA
                         <span className="w-4 h-[1px] bg-brand-primary"></span>
                         The Experience
                     </h3>
-                    <p className="text-lg text-gray-300 font-light leading-relaxed">
-                        {location.description || "An essential Chicago destination known for its unique atmosphere and curated energy. Perfect for those looking to explore the city's hidden depth."}
-                    </p>
+                    {location.description ? (
+                        <p className="text-lg text-gray-300 font-light leading-relaxed">{location.description}</p>
+                    ) : (
+                        <p className="text-sm text-gray-600 italic">No description yet.</p>
+                    )}
                 </div>
 
                 {/* Interactive Elements / Map Preview (Placeholder) */}
@@ -127,15 +144,50 @@ const LocationDetails: React.FC<LocationDetailsProps> = ({ location, inPlan, onA
                         Access Info
                     </h3>
 
-                    {hours && (
-                        <div className="bg-[#0A0A0A] border border-white/5 rounded-xl p-4">
-                            <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                <div className="text-gray-500">Right now</div>
-                                <div className={`text-right font-bold ${hours.open ? 'text-brand-accent' : 'text-gray-400'}`}>{hours.label}</div>
+                    <div className="bg-[#0A0A0A] border border-white/5 rounded-xl divide-y divide-white/5 text-sm">
+                        {location.openHours ? (
+                            <details className="group/hours">
+                                <summary className="flex justify-between items-center p-4 cursor-pointer list-none">
+                                    <span className="text-gray-500">{closedLabel ? 'Usual hours' : 'Right now'}</span>
+                                    <span className={`font-bold ${hours?.open ? 'text-brand-accent' : 'text-gray-400'}`}>
+                                        {hours?.label ?? 'See hours'} <span className="text-gray-600 group-open/hours:rotate-180 inline-block transition">▾</span>
+                                    </span>
+                                </summary>
+                                <dl className="px-4 pb-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+                                    {DAY_KEYS.map(d => (
+                                        <React.Fragment key={d}>
+                                            <dt className={d === today ? 'text-white font-bold' : 'text-gray-500'}>{DAY_NAMES[d]}</dt>
+                                            <dd className={`text-right ${d === today ? 'text-white font-bold' : 'text-gray-400'}`}>
+                                                {/* One line per window (lunch / dinner) */}
+                                                {describeDayHours(location.openHours?.[d]).split(', ').map(w => <div key={w}>{w}</div>)}
+                                            </dd>
+                                        </React.Fragment>
+                                    ))}
+                                </dl>
+                            </details>
+                        ) : (
+                            <div className="flex justify-between p-4">
+                                <span className="text-gray-500">Hours</span>
+                                <span className="text-gray-600">Not known</span>
                             </div>
-                        </div>
+                        )}
+
+                        <a href={mapsLink(location)} target="_blank" rel="noreferrer" className="flex justify-between items-center p-4 hover:bg-white/5 transition">
+                            <span className="text-gray-400 truncate pr-4">{location.address ?? 'Open in Google Maps'}</span>
+                            <span className="text-brand-accent font-bold shrink-0">Directions ↗</span>
+                        </a>
+
+                        {location.phoneNumber && (
+                            <a href={`tel:${location.phoneNumber.replace(/[^\d+]/g, '')}`} className="flex justify-between items-center p-4 hover:bg-white/5 transition">
+                                <span className="text-gray-400">{location.phoneNumber}</span>
+                                <span className="text-brand-accent font-bold">Call</span>
+                            </a>
+                        )}
+                    </div>
+
+                    {location.enrichedAt && (
+                        <p className="text-[10px] text-gray-600">Hours and details from Google · updated {formatDate(location.enrichedAt)}</p>
                     )}
-                    {location.address && <p className="text-sm text-gray-400">{location.address}</p>}
                 </div>
 
                 {/* "Insider Tip" Box */}

@@ -15,6 +15,7 @@ const loc = (overrides: Partial<Location> = {}): Location => ({
     id: 1, name: 'Spot', description: null, latitude: 41.89, longitude: -87.63, address: null, googlePlaceId: null,
     phoneNumber: null, metadata: null, avgCost: 2, avgStayMinutes: 90, openHours: null, website: null, menuUrl: null,
     eventsInfo: null, rating: null, reviewCount: null, isConfirmed: true, verifiedVibe: false, userVerifiedCount: 0,
+    businessStatus: null, googleMapsUrl: null, matchStatus: 'unmatched', matchCandidates: null, enrichedAt: null, fieldSources: null,
     createdAt: '', updatedAt: '', tags: [], categories: [], ...overrides,
 });
 

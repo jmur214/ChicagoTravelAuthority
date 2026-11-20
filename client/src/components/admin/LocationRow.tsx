@@ -2,6 +2,7 @@ import React from 'react';
 import type { Category, Location, Tag } from '@cta/shared';
 import { suggestedCategories, visibleCategories } from '../../lib/categories';
 import { priceLabel } from '../../lib/datetime';
+import { businessStatusLabel, formatDate } from '../../lib/placeLabels';
 
 interface LocationRowProps {
     location: Location;
@@ -12,9 +13,31 @@ interface LocationRowProps {
     onAddCategories: (categoryIds: number[]) => void;
     onEdit: () => void;
     onDelete: () => void;
+    /** Only when Google Places is configured */
+    places?: { busy: boolean; onEnrich: () => void; onReview: () => void };
 }
 
-const LocationRow: React.FC<LocationRowProps> = ({ location: loc, allCategories, allTags, onApprove, onSetVibe, onAddCategories, onEdit, onDelete }) => {
+/** Small badge showing whether this place is linked to a Google listing. */
+const MatchBadge: React.FC<{ loc: Location; onReview?: () => void }> = ({ loc, onReview }) => {
+    switch (loc.matchStatus) {
+        case 'matched':
+            return <span className="text-[10px] text-green-400" title={`Google data · updated ${formatDate(loc.enrichedAt)}`}>● Google</span>;
+        case 'needs_review':
+        case 'no_match':
+            return (
+                <button onClick={onReview} className="text-[10px] font-bold text-yellow-400 hover:text-yellow-300 underline decoration-dotted">
+                    {loc.matchStatus === 'needs_review' ? '? Review match' : '? No match found'}
+                </button>
+            );
+        case 'ignored':
+            return <span className="text-[10px] text-gray-500" title="Marked as not on Google">○ not on Google</span>;
+        default:
+            return null;
+    }
+};
+
+const LocationRow: React.FC<LocationRowProps> = ({ location: loc, allCategories, allTags, onApprove, onSetVibe, onAddCategories, onEdit, onDelete, places }) => {
+    const closed = businessStatusLabel(loc.businessStatus);
     const suggestions = suggestedCategories(loc, allTags);
     const assignable = visibleCategories(allCategories).filter(cat => !loc.categories.some(c => c.id === cat.id));
 
@@ -24,6 +47,10 @@ const LocationRow: React.FC<LocationRowProps> = ({ location: loc, allCategories,
                 <div className="flex items-center gap-2">
                     {!loc.isConfirmed && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" title="Needs Verification"></span>}
                     {loc.name}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                    <MatchBadge loc={loc} onReview={places?.onReview} />
+                    {closed && <span className="text-[10px] font-bold text-red-400">{closed}</span>}
                 </div>
             </td>
             <td className="p-4 text-gray-400 max-w-xs truncate">{loc.description}</td>
@@ -105,6 +132,11 @@ const LocationRow: React.FC<LocationRowProps> = ({ location: loc, allCategories,
                 </div>
             </td>
             <td className="p-4 text-right opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+                {places && loc.matchStatus !== 'ignored' && (
+                    <button onClick={places.onEnrich} disabled={places.busy} className="text-gray-400 hover:text-white mr-3 text-sm disabled:opacity-40">
+                        {places.busy ? '…' : loc.matchStatus === 'matched' ? 'Refresh' : 'Match'}
+                    </button>
+                )}
                 <button onClick={onEdit} className="text-brand-accent hover:text-white mr-3 text-sm">Edit</button>
                 <button onClick={onDelete} className="text-red-500 hover:text-red-400 text-sm">Delete</button>
             </td>

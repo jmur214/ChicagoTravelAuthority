@@ -4,6 +4,8 @@ import { api } from '../../api/client';
 import { ApiError, errorMessage } from '../../api/http';
 import { useCategories, useTags } from '../../hooks/useApiData';
 import { visibleCategories } from '../../lib/categories';
+import { formatDate, sourceHint } from '../../lib/placeLabels';
+import GooglePlaceSearch from './GooglePlaceSearch';
 import OpenHoursEditor from './OpenHoursEditor';
 import PlaceSearch from './PlaceSearch';
 
@@ -12,18 +14,23 @@ interface LocationModalProps {
     location: Location | null;
     onClose: () => void;
     onSaved: (location: Location) => void;
+    /** Google Places is configured: offer "Find it on Google" when adding */
+    placesConfigured?: boolean;
+    onCreatedFromPlace?: (location: Location) => void;
 }
 
 interface FormState {
     name: string;
     description: string;
     address: string;
+    phoneNumber: string;
     latitude: string;
     longitude: string;
     website: string;
     menuUrl: string;
     eventsInfo: string;
-    avgCost: number;
+    /** null = unknown */
+    avgCost: number | null;
     avgStayMinutes: number;
     openHours: OpenHours | null;
     tagIds: Set<number>;
@@ -34,12 +41,14 @@ const initialForm = (loc: Location | null): FormState => ({
     name: loc?.name ?? '',
     description: loc?.description ?? '',
     address: loc?.address ?? '',
+    phoneNumber: loc?.phoneNumber ?? '',
     latitude: loc ? String(loc.latitude) : '',
     longitude: loc ? String(loc.longitude) : '',
     website: loc?.website ?? '',
     menuUrl: loc?.menuUrl ?? '',
     eventsInfo: loc?.eventsInfo ?? '',
-    avgCost: loc?.avgCost ?? 2,
+    // Don't invent a price: saving a default would be recorded as your choice.
+    avgCost: loc ? loc.avgCost : null,
     avgStayMinutes: loc?.avgStayMinutes ?? 90,
     openHours: loc?.openHours ?? null,
     tagIds: new Set(loc?.tags.map(t => t.tag.id)),
@@ -52,6 +61,7 @@ const toPayload = (f: FormState): LocationCreateInput => ({
     name: f.name,
     description: f.description,
     address: f.address,
+    phoneNumber: f.phoneNumber,
     latitude: parseCoord(f.latitude),
     longitude: parseCoord(f.longitude),
     website: f.website,
@@ -66,9 +76,12 @@ const toPayload = (f: FormState): LocationCreateInput => ({
 
 const inputClass = 'w-full bg-black/40 border border-white/10 rounded p-2 text-white focus:border-brand-primary outline-none';
 
-const Field: React.FC<{ label: string; error?: string; className?: string; children: React.ReactNode }> = ({ label, error, className, children }) => (
+const Field: React.FC<{ label: string; error?: string; hint?: string | null; className?: string; children: React.ReactNode }> = ({ label, error, hint, className, children }) => (
     <div className={className}>
-        <label className="block text-xs uppercase text-gray-400 mb-1">{label}</label>
+        <label className="block text-xs uppercase text-gray-400 mb-1">
+            {label}
+            {hint && <span className="ml-2 normal-case text-[10px] text-gray-600">{hint}</span>}
+        </label>
         {children}
         {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
     </div>
@@ -81,7 +94,7 @@ const toggle = (set: Set<number>, id: number) => {
     return next;
 };
 
-const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSaved }) => {
+const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSaved, placesConfigured, onCreatedFromPlace }) => {
     const [form, setForm] = useState(() => initialForm(location));
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [saving, setSaving] = useState(false);
@@ -91,6 +104,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSave
     const categories = visibleCategories(allCategories);
 
     const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(f => ({ ...f, [key]: value }));
+    const hint = (field: Parameters<typeof sourceHint>[1]) => sourceHint(location?.fieldSources, field);
 
     /** Add every category linked to the selected tags. */
     const autoCategorize = () => {
@@ -134,7 +148,19 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSave
             <div className="glass-panel w-full max-w-lg rounded-2xl p-6 bg-[#181818] border border-white/10 shadow-2xl overflow-y-auto max-h-[90vh]">
                 <h2 className="text-xl font-bold text-white mb-4">{location ? 'Edit Location' : 'Add New Location'}</h2>
 
-                {!location && (
+                {location?.matchStatus === 'matched' && (
+                    <p className="text-xs text-gray-400 -mt-2 mb-4">
+                        <span className="text-green-400">●</span> Linked to Google · updated {formatDate(location.enrichedAt)}
+                        {location.googleMapsUrl && (
+                            <> · <a href={location.googleMapsUrl} target="_blank" rel="noreferrer" className="text-brand-accent hover:underline">View on Google Maps</a></>
+                        )}
+                        <span className="block text-gray-600 mt-0.5">Anything you change here is kept when Google data is refreshed.</span>
+                    </p>
+                )}
+
+                {!location && placesConfigured && onCreatedFromPlace && <GooglePlaceSearch onCreated={onCreatedFromPlace} />}
+
+                {!location && !placesConfigured && (
                     <PlaceSearch
                         onFound={place =>
                             setForm(f => ({
@@ -153,16 +179,21 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSave
                         <input className={inputClass} value={form.name} onChange={e => set('name', e.target.value)} />
                     </Field>
 
-                    <Field label="Description" error={errors.description}>
+                    <Field label="Description" error={errors.description} hint={hint('description')}>
                         <textarea className={`${inputClass} h-24`} value={form.description} onChange={e => set('description', e.target.value)} />
                     </Field>
 
-                    <Field label="Address" error={errors.address}>
-                        <input className={inputClass} value={form.address} onChange={e => set('address', e.target.value)} />
-                    </Field>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Field label="Address" error={errors.address} hint={hint('address')}>
+                            <input className={inputClass} value={form.address} onChange={e => set('address', e.target.value)} />
+                        </Field>
+                        <Field label="Phone" error={errors.phoneNumber} hint={hint('phoneNumber')}>
+                            <input type="tel" className={inputClass} value={form.phoneNumber} onChange={e => set('phoneNumber', e.target.value)} />
+                        </Field>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Field label="Website URL" error={errors.website}>
+                        <Field label="Website URL" error={errors.website} hint={hint('website')}>
                             <input className={inputClass} value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://..." />
                         </Field>
                         <Field label="Menu URL" error={errors.menuUrl}>
@@ -180,7 +211,7 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSave
                         />
                     </div>
 
-                    <Field label="Operating Hours" error={errors.openHours}>
+                    <Field label="Operating Hours" error={errors.openHours} hint={hint('openHours')}>
                         <OpenHoursEditor value={form.openHours} onChange={hours => set('openHours', hours)} />
                     </Field>
 
@@ -194,8 +225,13 @@ const LocationModal: React.FC<LocationModalProps> = ({ location, onClose, onSave
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <Field label="Avg Cost (1-4)" error={errors.avgCost}>
-                            <select className={inputClass} value={form.avgCost} onChange={e => set('avgCost', Number(e.target.value))}>
+                        <Field label="Price" error={errors.avgCost} hint={hint('avgCost')}>
+                            <select
+                                className={inputClass}
+                                value={form.avgCost ?? ''}
+                                onChange={e => set('avgCost', e.target.value === '' ? null : Number(e.target.value))}
+                            >
+                                <option value="">Unknown</option>
                                 {[1, 2, 3, 4].map(n => (
                                     <option key={n} value={n}>{'$'.repeat(n)}</option>
                                 ))}

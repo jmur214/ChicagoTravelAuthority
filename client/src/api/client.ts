@@ -1,5 +1,10 @@
 import type {
     Category,
+    CreateFromPlaceInput,
+    EnrichResult,
+    LatLng,
+    PlacesStatus,
+    ScoredCandidate,
     CategoryCreateInput,
     CategoryUpdateInput,
     ImportResult,
@@ -28,6 +33,25 @@ export const api = {
         /** Partial update: only the fields you pass are changed. */
         update: (id: number, data: LocationUpdateInput) => request<Location>('PATCH', `/locations/${id}`, data),
         remove: (id: number) => request<void>('DELETE', `/locations/${id}`),
+        /** Match to Google (or refresh if already matched). */
+        enrich: (id: number) => request<EnrichResult>('POST', `/locations/${id}/enrich`),
+        /** Link to a specific Google place. */
+        match: (id: number, externalId: string) => request<EnrichResult>('POST', `/locations/${id}/match`, { externalId }),
+        /** "Not on Google" — stop suggesting matches. */
+        ignoreMatch: (id: number) => request<EnrichResult>('POST', `/locations/${id}/match`, { ignore: true }),
+        createFromPlace: (input: CreateFromPlaceInput) => request<EnrichResult>('POST', '/locations/from-place', input),
+    },
+
+    places: {
+        status: () => request<PlacesStatus>('GET', '/places/status'),
+        search: (q: string, near?: LatLng) => {
+            const params = new URLSearchParams({ q });
+            if (near) {
+                params.set('lat', String(near.lat));
+                params.set('lng', String(near.lng));
+            }
+            return request<ScoredCandidate[]>('GET', `/places/search?${params}`);
+        },
     },
 
     categories: {

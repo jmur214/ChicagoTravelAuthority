@@ -42,3 +42,4 @@ export function useApiData<T>(fetcher: () => Promise<T>) {
 
 export const useCategories = () => useApiData(api.categories.list);
 export const useTags = () => useApiData(api.tags.list);
+export const usePlacesStatus = () => useApiData(api.places.status);
