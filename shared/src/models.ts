@@ -37,6 +37,85 @@ export interface LocationMetadata {
     [key: string]: unknown;
 }
 
+// --- Place data enrichment -----------------------------------------------------
+
+export type BusinessStatus = 'OPERATIONAL' | 'CLOSED_TEMPORARILY' | 'CLOSED_PERMANENTLY' | 'FUTURE_OPENING';
+
+/**
+ * unmatched    — never checked against the places provider
+ * matched      — linked to a provider place; data comes from it
+ * needs_review — plausible candidates found, but not certain enough to apply automatically
+ * no_match     — nothing plausible found
+ * ignored      — curator said this place has no provider listing; don't ask again
+ */
+export type MatchStatus = 'unmatched' | 'matched' | 'needs_review' | 'no_match' | 'ignored';
+export type MatchConfidence = 'high' | 'medium' | 'low';
+
+/** A place as returned by the provider (Google Places), normalized to our fields. */
+export interface PlaceCandidate {
+    provider: 'google';
+    externalId: string;
+    name: string;
+    address: string | null;
+    latitude: number;
+    longitude: number;
+    /** null = provider has no hours */
+    openHours: OpenHours | null;
+    phoneNumber: string | null;
+    website: string | null;
+    rating: number | null;
+    reviewCount: number | null;
+    /** 1–4, mapped from the provider's price level */
+    avgCost: number | null;
+    businessStatus: BusinessStatus | null;
+    googleMapsUrl: string | null;
+    types: string[];
+    /** Provider-written summary, if any */
+    summary: string | null;
+}
+
+export interface ScoredCandidate extends PlaceCandidate {
+    /** From the location being matched; null when searching without one */
+    distanceMeters: number | null;
+    /** 0–1 */
+    nameScore: number;
+    confidence: MatchConfidence;
+}
+
+/** Fields the enrichment pipeline may fill in. */
+export const ENRICHABLE_FIELDS = [
+    'address', 'phoneNumber', 'website', 'openHours', 'rating', 'reviewCount', 'avgCost',
+    'description', 'latitude', 'longitude', 'businessStatus', 'googleMapsUrl',
+] as const;
+export type EnrichableField = (typeof ENRICHABLE_FIELDS)[number];
+
+/**
+ * Where a field's value came from. Enrichment never overwrites `manual` values;
+ * `estimate` values (e.g. guessed hours) are replaced whenever real data exists.
+ */
+export type FieldSource = 'google' | 'manual' | 'kml' | 'estimate';
+export type FieldSources = Partial<Record<EnrichableField, { source: FieldSource; at: string }>>;
+
+export interface FieldChange {
+    field: EnrichableField;
+    from: unknown;
+    to: unknown;
+}
+
+export interface EnrichResult {
+    status: MatchStatus;
+    location: Location;
+    /** Fields that changed in this run */
+    changes: FieldChange[];
+    /** Present when status is needs_review / no_match */
+    candidates: ScoredCandidate[];
+}
+
+export interface PlacesStatus {
+    provider: 'google';
+    configured: boolean;
+}
+
 export interface Location {
     id: number;
     name: string;
@@ -59,6 +138,14 @@ export interface Location {
     isConfirmed: boolean;
     verifiedVibe: boolean;
     userVerifiedCount: number;
+    businessStatus: BusinessStatus | null;
+    googleMapsUrl: string | null;
+    matchStatus: MatchStatus;
+    /** Candidates awaiting review (needs_review / no_match) */
+    matchCandidates: ScoredCandidate[] | null;
+    /** Last time data was pulled from the places provider */
+    enrichedAt: string | null;
+    fieldSources: FieldSources | null;
     createdAt: string;
     updatedAt: string;
     tags: LocationTag[];
@@ -125,7 +212,7 @@ export interface TransitRoute {
 
 // --- Errors ------------------------------------------------------------------
 
-export type ApiErrorCode = 'VALIDATION_ERROR' | 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'INTERNAL_ERROR';
+export type ApiErrorCode = 'VALIDATION_ERROR' | 'NOT_FOUND' | 'CONFLICT' | 'BAD_REQUEST' | 'NOT_CONFIGURED' | 'UPSTREAM_ERROR' | 'INTERNAL_ERROR';
 
 /** Every non-2xx response has this body. */
 export interface ApiErrorBody {

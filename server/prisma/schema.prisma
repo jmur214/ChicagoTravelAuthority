@@ -33,8 +33,18 @@ model Location {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  // Place data enrichment (see server/src/services/places)
+  businessStatus  String?   @map("business_status") // OPERATIONAL | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY | FUTURE_OPENING
+  googleMapsUrl   String?   @map("google_maps_url")
+  matchStatus     String    @default("unmatched") @map("match_status") // unmatched | matched | needs_review | no_match | ignored
+  matchCandidates Json?     @map("match_candidates") // ScoredCandidate[] awaiting review
+  enrichedAt      DateTime? @map("enriched_at")
+  fieldSources    Json?     @map("field_sources") // { field: { source, at } } — provenance per field
+
   tags       LocationTag[]
   categories TagCategory[] // Direct high-level categorization
+
+  @@index([matchStatus])
 }
 
 model TagCategory {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatHHMM, getOpenStatus, getZonedDayAndMinutes, type OpenHours } from './openHours';
+import { describeDayHours, formatHHMM, getOpenStatus, getZonedDayAndMinutes, OpenHoursSchema, type OpenHours } from './openHours';
 
 // All instants are given in UTC so the tests don't depend on the machine's TZ.
 // Chicago is UTC-6 in November (CST) and UTC-5 in July (CDT).
@@ -68,5 +68,42 @@ describe('formatHHMM', () => {
         ['17:30', '5:30 PM'],
     ])('%s -> %s', (input, expected) => {
         expect(formatHHMM(input)).toBe(expected);
+    });
+});
+
+describe('split-shift days', () => {
+    // Mon: lunch 11–14, dinner 17–22; Fri: 17–02 then nothing; Sat open 24h
+    const diner: OpenHours = {
+        mon: { isOpen: true, open: '11:00', close: '14:00', additional: [{ open: '17:00', close: '22:00' }] },
+        fri: { isOpen: true, open: '17:00', close: '02:00' },
+        sat: { isOpen: true, open: '00:00', close: '00:00' },
+    };
+
+    it('is open during either window and closed in the gap', () => {
+        // Mon 12:00 CST
+        expect(getOpenStatus(diner, new Date('2026-11-16T18:00:00Z'))).toEqual({ state: 'open', closesAt: '14:00' });
+        // Mon 15:30 CST — between shifts
+        expect(getOpenStatus(diner, new Date('2026-11-16T21:30:00Z'))).toEqual({ state: 'closed', opensAt: '17:00' });
+        // Mon 18:00 CST
+        expect(getOpenStatus(diner, new Date('2026-11-17T00:00:00Z'))).toEqual({ state: 'open', closesAt: '22:00' });
+    });
+
+    it('handles a 24-hour day following an overnight window', () => {
+        // Sat 01:00 CST — still Friday's window
+        expect(getOpenStatus(diner, new Date('2026-11-21T07:00:00Z'))).toEqual({ state: 'open', closesAt: '02:00' });
+        // Sat 03:00 CST — Saturday is 24h
+        expect(getOpenStatus(diner, new Date('2026-11-21T09:00:00Z')).state).toBe('open');
+    });
+
+    it('describes days for display', () => {
+        expect(describeDayHours(diner.mon)).toBe('11:00 AM – 2:00 PM, 5:00 PM – 10:00 PM');
+        expect(describeDayHours(diner.fri)).toBe('5:00 PM – 2:00 AM');
+        expect(describeDayHours(diner.sat)).toBe('Open 24 hours');
+        expect(describeDayHours(diner.tue)).toBe('Closed');
+    });
+
+    it('rejects more than five extra windows', () => {
+        const many = Array.from({ length: 6 }, () => ({ open: '01:00', close: '02:00' }));
+        expect(OpenHoursSchema.safeParse({ mon: { isOpen: true, open: '00:00', close: '01:00', additional: many } }).success).toBe(false);
     });
 });

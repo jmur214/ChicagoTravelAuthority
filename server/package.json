@@ -14,7 +14,9 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx scripts/seed_demo_data.ts",
-    "db:reset": "tsx scripts/reset_db.ts"
+    "db:reset": "tsx scripts/reset_db.ts",
+    "places:enrich": "tsx scripts/enrich_places.ts",
+    "places:audit": "tsx scripts/audit_place_data.ts"
   },
   "dependencies": {
     "@cta/shared": "*",
@@ -37,7 +39,6 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
     "@types/supertest": "^6.0.3",
-    "puppeteer": "^24.32.1",
     "supertest": "^7.1.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3",

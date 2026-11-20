@@ -63,6 +63,29 @@ export const LocationListQuerySchema = z.object({
     all: z.enum(['true', 'false']).optional().transform(v => v === 'true'),
 });
 
+// --- Place data ------------------------------------------------------------
+
+export const PlaceSearchQuerySchema = z.object({
+    q: z.string().trim().min(2).max(200),
+    lat: z.coerce.number().min(-90).max(90).optional(),
+    lng: z.coerce.number().min(-180).max(180).optional(),
+});
+
+/** Link a location to a specific provider place (from review or a manual search). */
+export const PlaceMatchSchema = z.union([
+    z.object({ externalId: z.string().min(1).max(300) }),
+    z.object({ ignore: z.literal(true) }),
+]);
+export type PlaceMatchInput = z.input<typeof PlaceMatchSchema>;
+
+export const CreateFromPlaceSchema = z.object({
+    externalId: z.string().min(1).max(300),
+    /** Optional name override; defaults to the provider's name */
+    name: z.string().trim().min(1).max(200).optional(),
+    isConfirmed: z.boolean().optional(),
+});
+export type CreateFromPlaceInput = z.input<typeof CreateFromPlaceSchema>;
+
 // --- Categories ------------------------------------------------------------
 
 export const CategoryCreateSchema = z.object({

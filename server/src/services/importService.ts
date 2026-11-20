@@ -70,6 +70,7 @@ export async function importKmlFile(file: Buffer): Promise<ImportResult> {
                 ]);
                 result.updated++;
             } else {
+                const at = new Date().toISOString();
                 await prisma.location.create({
                     data: {
                         name: place.name,
@@ -77,6 +78,11 @@ export async function importKmlFile(file: Buffer): Promise<ImportResult> {
                         latitude: place.latitude,
                         longitude: place.longitude,
                         metadata,
+                        fieldSources: {
+                            latitude: { source: 'kml', at },
+                            longitude: { source: 'kml', at },
+                            ...(place.description && { description: { source: 'kml', at } }),
+                        },
                         tags: { create: tagIds.map(tagId => ({ tagId })) },
                     },
                 });

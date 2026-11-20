@@ -1,6 +1,7 @@
 import { CHICAGO_CENTER, getNeighborhood, OpenHoursSchema, type PlanRequest, type PlanResponse } from '@cta/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { notPermanentlyClosed } from '../locationService';
 import { buildItinerary, type PlannerCandidate } from './planner';
 
 export async function generatePlan(request: PlanRequest): Promise<PlanResponse> {
@@ -11,7 +12,15 @@ export async function generatePlan(request: PlanRequest): Promise<PlanResponse> 
     if (categoryIds.length) matchAny.push({ categories: { some: { id: { in: categoryIds } } } });
 
     const rows = await prisma.location.findMany({
-        where: { isConfirmed: true, ...(matchAny.length ? { OR: matchAny } : {}) },
+        where: {
+            isConfirmed: true,
+            AND: [
+                notPermanentlyClosed,
+                // Temporarily closed / not yet open places can't be visited either.
+                { OR: [{ businessStatus: null }, { businessStatus: { notIn: ['CLOSED_TEMPORARILY', 'FUTURE_OPENING'] } }] },
+                ...(matchAny.length ? [{ OR: matchAny }] : []),
+            ],
+        },
         include: { tags: { include: { tag: true } }, categories: true },
     });
 
@@ -30,6 +39,8 @@ export async function generatePlan(request: PlanRequest): Promise<PlanResponse> 
             tagNames: row.tags.map(t => t.tag.name),
             categoryIds: row.categories.map(c => c.id),
             categoryNames: new Map(row.categories.map(c => [c.id, c.name])),
+            // Google place types ("night_club", "museum") are good energy hints.
+            placeTypes: (((row.metadata as { placeTypes?: string[] } | null)?.placeTypes) ?? []).map(t => t.replace(/_/g, ' ')),
         };
     });
 

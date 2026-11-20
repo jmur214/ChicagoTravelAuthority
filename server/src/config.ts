@@ -16,6 +16,10 @@ const EnvSchema = z.object({
     CTA_POLL_INTERVAL_MS: z.coerce.number().int().min(5000).default(20000),
     GTFS_DIR: z.string().default(path.resolve(__dirname, '../../google_transit')),
     MAX_UPLOAD_MB: z.coerce.number().positive().default(10),
+    /** Google Cloud API key with "Places API (New)" enabled. Enables matching/enrichment. */
+    GOOGLE_PLACES_KEY: z.string().optional(),
+    /** Override for testing against a fake Places server. */
+    GOOGLE_PLACES_BASE_URL: z.string().url().optional(),
     /** Built web app to serve alongside the API (if present). Run `npm run build` first. */
     CLIENT_DIST_DIR: z.string().default(path.resolve(__dirname, '../../client/dist')),
 });
@@ -40,4 +44,8 @@ export const config = {
     gtfsDir: env.GTFS_DIR,
     maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
     clientDistDir: env.CLIENT_DIST_DIR,
+    places: {
+        apiKey: env.GOOGLE_PLACES_KEY || undefined,
+        baseUrl: env.GOOGLE_PLACES_BASE_URL,
+    },
 } as const;

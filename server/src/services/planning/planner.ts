@@ -24,6 +24,8 @@ export interface PlannerCandidate {
     tagNames: string[];
     categoryIds: number[];
     categoryNames: Map<number, string>;
+    /** Extra labels for energy estimation only (e.g. provider place types) */
+    placeTypes?: string[];
 }
 
 export interface PlannerCriteria {
@@ -84,7 +86,7 @@ export function buildItinerary(candidates: PlannerCandidate[], criteria: Planner
 
     // Energy only depends on the place, so compute it once.
     const energyOf = new Map(
-        candidates.map(c => [c.id, estimateEnergy([...c.tagNames, ...c.categoryNames.values()])]),
+        candidates.map(c => [c.id, estimateEnergy([...c.tagNames, ...c.categoryNames.values(), ...(c.placeTypes ?? [])])]),
     );
 
     const picks: { cand: PlannerCandidate; reason: string; matchScore: number }[] = [];

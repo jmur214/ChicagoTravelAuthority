@@ -5,7 +5,7 @@
  * plurals allowed. Extend the table as your tagging evolves.
  */
 export const ENERGY_KEYWORDS: Record<1 | 2 | 3 | 4 | 5, string[]> = {
-    5: ['nightclub', 'club', 'dance', 'dancing', 'rave', 'high energy', 'party', 'edm', 'bottle service'],
+    5: ['nightclub', 'night club', 'club', 'dance', 'dancing', 'rave', 'high energy', 'party', 'edm', 'bottle service'],
     4: ['nightlife', 'live music', 'concert', 'late night', 'karaoke', 'sports bar', 'sports', 'comedy', 'show',
         'arcade', 'barcade', 'pinball', 'beer hall', 'blues', 'baseball', 'stadium'],
     3: ['bar', 'pub', 'tavern', 'dive', 'cocktail', 'brewery', 'beer', 'restaurant', 'food', 'dinner', 'dining',
